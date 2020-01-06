@@ -84,9 +84,9 @@ Dir.mktmpdir do |root|
   end
   lmc_prefix = File.join(root, 'libmongocrypt')
   Dir.chdir(lmc_root) do
-    check_system('echo hello >VERSION_CURRENT')
+    #check_system('echo hello >VERSION_CURRENT')
     check_system(cmake_path, "-DCMAKE_PREFIX_PATH=#{libbson_prefix}",
-      '-DDISABLE_NATIVE_CRYPTO=1',
+      '-DDISABLE_NATIVE_CRYPTO=1', '-DBUILD_VERSION=1.0.0',
       "-DCMAKE_INSTALL_PREFIX=#{lmc_prefix}", '-DCMAKE_C_FLAGS="-fPIC"', '.')
     check_system('make', 'install')
   end
