@@ -4,6 +4,6 @@ set -e
 
 docker build -t libmongocrypt-so .
 
-mkdir -p lib/so
+mkdir -p so
 
-docker run -t libmongocrypt-so cat /libmongocrypt.so > lib/so/libmongocrypt.so
+docker run -t libmongocrypt-so cat /libmongocrypt.so > so/libmongocrypt.so
