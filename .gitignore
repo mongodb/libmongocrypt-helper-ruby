@@ -1,3 +1,4 @@
 ext/*.so
 ext/Makefile
 *.gem
+gem-private_key.pem
