@@ -1,10 +1,10 @@
 lib = File.expand_path('../lib', __FILE__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
-require 'libmongocrypt/version'
+require 'libmongocrypt_helper/version'
 
 Gem::Specification.new do |s|
-  s.name              = 'libmongocrypt'
-  s.version           = Libmongocrypt::VERSION
+  s.name              = 'libmongocrypt-helper'
+  s.version           = LibmongocryptHelper::VERSION
   s.authors           = ['Oleg Pudeyev']
   s.email             = ['mongodb-dev@googlegroups.com']
   s.homepage          = 'https://docs.mongodb.com/ruby-driver/current/'
@@ -32,6 +32,4 @@ Gem::Specification.new do |s|
   s.files      += Dir.glob('lib/**/*')
 
   s.require_path              = 'lib'
-
-  s.extensions = ['ext/extconf.rb']
 end
