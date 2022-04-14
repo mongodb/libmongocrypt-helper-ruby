@@ -29,7 +29,7 @@ Gem::Specification.new do |s|
   end
 
   #s.files      = %w(CONTRIBUTING.md CHANGELOG.md LICENSE NOTICE README.md Rakefile)
-  s.files      += Dir.glob('lib/**/*')
+  s.files      += Dir.glob('lib/**/*') + Dir.glob('so/**/*.so')
 
   s.require_path              = 'lib'
 end
