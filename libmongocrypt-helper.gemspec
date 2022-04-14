@@ -14,11 +14,11 @@ Gem::Specification.new do |s|
 
   s.metadata = {
     'bug_tracker_uri' => 'https://jira.mongodb.org/projects/RUBY',
-    'changelog_uri' => 'https://github.com/mongodb/bson-ruby/releases',
-    'documentation_uri' => 'https://docs.mongodb.com/ruby-driver/current/tutorials/bson-v4/',
-    'homepage_uri' => 'https://docs.mongodb.com/ruby-driver/current/tutorials/bson-v4/',
+    'changelog_uri' => 'https://github.com/p-mongodb/libmongocrypt-helper/releases',
+    'documentation_uri' => 'https://www.mongodb.com/docs/ruby-driver/master/reference/client-side-encryption/',
+    'homepage_uri' => 'https://docs.mongodb.com/ruby-driver/current/',
     'mailing_list_uri' => 'https://groups.google.com/group/mongodb-user',
-    'source_code_uri' => 'https://github.com/mongodb/bson-ruby'
+    'source_code_uri' => 'https://github.com/p-mongodb/libmongocrypt-helper'
   }
 
   if File.exists?('gem-private_key.pem')
