@@ -13,14 +13,14 @@ RUN git clone https://github.com/mongodb/mongo-c-driver && \
   cmake -DENABLE_MONGOC=OFF -DCMAKE_INSTALL_PREFIX="/opt/bson" ../ && \
   make -j`cat /proc/cpuinfo |grep ^processor |wc -l` install
 
-#RUN curl -fL https://codeload.github.com/mongodb/libmongocrypt/tar.gz/refs/tags/1.3.2 |tar xfz -
+RUN curl -fL https://codeload.github.com/mongodb/libmongocrypt/tar.gz/refs/tags/1.5.0-alpha1 |tar xfz -
 
 # libmongocrypt does not build from release packages (on GH releases page) -
 # it demands its git repo to build.
 # Options to build without native crypto are not documented.
 RUN git clone https://github.com/mongodb/libmongocrypt && \
   cd libmongocrypt && \
-  git checkout 1.3.2 && \
+  git checkout 1.5.0-alpha1 && \
   mkdir xbuild && \
   cd xbuild && \
   cmake -DCMAKE_PREFIX_PATH="/opt/bson" \
