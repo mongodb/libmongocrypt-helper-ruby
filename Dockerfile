@@ -2,8 +2,16 @@ FROM debian:9
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-RUN apt-get update && \
-  apt-get -y install cmake curl gcc g++ git python3
+RUN printf "deb http://httpredir.debian.org/debian stretch-backports main\ndeb-src \
+          http://httpredir.debian.org/debian stretch-backports main\n\
+          deb http://httpredir.debian.org/debian stretch-backports-sloppy main\n\
+          deb-src http://httpredir.debian.org/debian stretch-backports-sloppy main" > /etc/apt/sources.list.d/backports.list
+
+RUN apt-get update && apt-get install -y -t stretch-backports-sloppy libarchive13
+
+RUN apt-get install -y -t stretch-backports cmake
+
+RUN apt-get -y install curl git python3 gcc g++
 
 RUN git clone https://github.com/mongodb/mongo-c-driver && \
   cd mongo-c-driver && \
