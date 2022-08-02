@@ -1,0 +1,19 @@
+#!/usr/bin/env ruby
+
+require 'ffi'
+$: << File.join(File.dirname(__FILE__), 'lib')
+require 'libmongocrypt_helper'
+
+SO_PATH = File.join(File.dirname(__FILE__), 'so', 'libmongocrypt.so')
+
+module Libmongocrypt
+  extend FFI::Library
+  ffi_lib SO_PATH
+  attach_function :mongocrypt_version, [:pointer], :string
+end
+
+actual_version = Libmongocrypt.mongocrypt_version(nil)
+
+if actual_version != LibmongocryptHelper::VERSION
+  raise "Expected libmongocrypt version #{LibmongocryptHelper::VERSION}, got #{actual_version}"
+end
