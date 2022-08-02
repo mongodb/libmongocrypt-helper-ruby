@@ -1,3 +1,5 @@
+require 'libmongocrypt_helper/version'
+
 module LibmongocryptHelper
   def libmongocrypt_path
     File.join(File.dirname(__FILE__), '..', 'so', 'libmongocrypt.so')
