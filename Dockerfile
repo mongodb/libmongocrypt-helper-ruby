@@ -25,7 +25,7 @@ RUN git clone https://github.com/mongodb/mongo-c-driver && \
 # Options to build without native crypto are not documented.
 RUN git clone https://github.com/mongodb/libmongocrypt && \
   cd libmongocrypt && \
-  git checkout 1.5.2 && \
+  git checkout 1.7.0 && \
   mkdir xbuild && \
   cd xbuild && \
   cmake -DCMAKE_PREFIX_PATH="/opt/bson" \
