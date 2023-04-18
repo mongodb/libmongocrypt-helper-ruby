@@ -1,0 +1,8 @@
+mongocrypt {
+    local:
+        bson*;
+        bcon*;
+        jsonsl*;
+        _*;
+        kms*;
+};

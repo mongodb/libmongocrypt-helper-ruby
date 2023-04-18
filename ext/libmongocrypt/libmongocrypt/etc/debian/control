@@ -1,0 +1,33 @@
+Source: libmongocrypt
+Priority: optional
+Maintainer: Mongo C Driver Team <mongo-c-driver-debian@googlegroups.com>
+Uploaders: Kevin Albertson <kevin.albertson@mongodb.com>,
+           Clyde Bazile <clyde.bazile@mongodb.com>,
+           Samantha Ritter <samantha.ritter@mongodb.com>,
+           Roberto C. Sanchez <roberto@connexer.com>
+Standards-Version: 4.5.0
+Section: libs
+Homepage: https://github.com/mongodb/libmongocrypt
+
+Package: libmongocrypt-dev
+Section: libdevel
+Architecture: any
+Multi-Arch: same
+Depends: libmongocrypt0 (= ${binary:Version}), ${misc:Depends}
+Description: client-side field level encryption library - dev files
+ libmongocrypt facilitates the client-side encryption and decryption,
+ at the field level, of data stored in MongoDB.
+ .
+ This package contains the libmongocrypt and libkms_message development
+ headers and libraries.
+
+Package: libmongocrypt0
+Architecture: any
+Multi-Arch: same
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: client-side field level encryption library - runtime files
+ libmongocrypt facilitates the client-side encryption and decryption,
+ at the field level, of data stored in MongoDB.
+ .
+ This package contains the libmongocrypt and libkms_message runtime
+ libraries.
