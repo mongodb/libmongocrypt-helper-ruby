@@ -9,10 +9,9 @@ Edit `lib/libmongocrypt_helper/version.rb` and:
 `libmongocrypt` that you want to package.
 2. Update the `VERSION` constant to the version of the helper, which is
 derived from `libmongocrypt` version as described below.
-3. Run `./build-so.sh`. This will fetch the tarball for `libmongocrypt`
-of the version specified in the first step, build the `libmongocrypt.so`
-shared library using Docker and place the shared library under the `so`
-subdirectory.
+3. Download the source code of the corresponding version of `libmongocrypt` from
+https://github.com/mongodb/libmongocrypt/releases/, and unpack it to
+`ext/libmongocrypt/libmongicrypt`.
 4. Commit the changes including the new shared library.
 5. Run `./release.sh` to create a gem and push it to RubyGems.
 
@@ -39,11 +38,3 @@ revision vs the `libmongocrypt` version.
 crypto libraries (i.e. OpenSSL) or not. If `libmongocrypt` is not linked
 to the operating system's crypto libraries, a crypto implementation must be
 provided at runtime, which the Ruby MongoDB driver does.
-
-The advantage of not linking against the operating system's crypto libraries
-is that the `libmongocrypt.so` binary becomes portable across the various
-Linux distributions for example. The only requirement of `libmongocrypt.so`
-as packaged with libmongocrypt helper is the GLibC version that the system
-provides has to be at least the version that the shared library was built
-against. For this reason, the shared library is built in Docker using
-Debian 9.

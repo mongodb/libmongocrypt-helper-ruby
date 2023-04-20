@@ -2,3 +2,5 @@ ext/*.so
 ext/Makefile
 *.gem
 gem-private_key.pem
+ext/libmongocrypt/libmongocrypt/build
+Gemfile.lock

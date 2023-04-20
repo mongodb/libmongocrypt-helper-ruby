@@ -21,7 +21,7 @@ Gem::Specification.new do |s|
     'source_code_uri' => 'https://github.com/mongodb/libmongocrypt-helper-ruby'
   }
 
-  if File.exists?('gem-private_key.pem')
+  if File.exist?('gem-private_key.pem')
     s.signing_key = 'gem-private_key.pem'
     s.cert_chain = ['gem-public_cert.pem']
   else
@@ -29,7 +29,8 @@ Gem::Specification.new do |s|
   end
 
   #s.files = %w(CONTRIBUTING.md CHANGELOG.md LICENSE NOTICE README.md Rakefile)
-  s.files += Dir.glob('lib/**/*') + Dir.glob('so/**/*.so')
+  s.extensions = ['ext/libmongocrypt/extconf.rb']
+  s.files = Dir.glob('lib/**/*') + Dir.glob('ext/**/*') - [File.join('ext/libmongocrypt/libmongocrypt/build')]
 
-  s.require_path = 'lib'
+  s.require_path = ['lib']
 end

@@ -1,0 +1,297 @@
+[
+  {
+    "description": "Successful encryption response",
+    "ctx": ["datakey"],
+    "http_reply": [
+      "HTTP/1.1 200 OK\r\n",
+      "x-amzn-RequestId: deeb35e5-4ecb-4bf1-9af5-84a54ff0af0e\r\n",
+      "Content-Type: application/x-amz-json-1.1\r\n",
+      "Content-Length: 446\r\n",
+      "Connection: close\r\n",
+      "\r\n",
+      "{\"KeyId\": \"arn:aws:kms:us-east-1:579766882180:key/89fcc2c4-08b0-4bd9-9f25-e30687b580d0\", \"CiphertextBlob\": \"AQICAHhQNmWG2CzOm1dq3kWLM+iDUZhEqnhJwH9wZVpuZ94A8gHCPOT4UQIpMTvAVABLqnXlAAAAwjCBvwYJKoZIhvcNAQcGoIGxMIGuAgEAMIGoBgkqhkiG9w0BBwEwHgYJYIZIAWUDBAEuMBEEDLxAm0nO3rccdoWA6AIBEIB7HUe6+aPvgNu/4sLEXBQVDIJVBueI3q7zdOMBSkRKkgZWqEuQgA6iDuEZbhHhOVCUXPBaLX6QWRwyMmjvIy/2Bg5q+TmwnfRo6QKdw2vee1W32/FdPWIoQy1yKOoIhNy6XMWldS3JuWK8ffQOYkssEqx0V4LW6PKuFv7D\"}"
+    ],
+    "expect": "ok"
+  },
+  {
+    "description": "Successful decryption response",
+    "ctx": ["decrypt"],
+    "http_reply": [
+      "HTTP/1.1 200 OK\r\n",
+      "x-amzn-RequestId: deeb35e5-4ecb-4bf1-9af5-84a54ff0af0e\r\n",
+      "Content-Type: application/x-amz-json-1.1\r\n",
+      "Content-Length: 233\r\n",
+      "\r\n",
+      "{\"KeyId\": \"arn:aws:kms:us-east-1:579766882180:key/89fcc2c4-08b0-4bd9-9f25-e30687b580d0\", \"Plaintext\": \"TqhXy3tKckECjy4/ZNykMWG8amBF46isVPzeOgeusKrwheBmYaU8TMG5AHR/NeUDKukqo8hBGgogiQOVpLPkqBQHD8YkLsNbDmHoGOill5QAHnniF/Lz405bGucB5TfR\"}"
+    ],
+    "expect": "ok"
+  },
+  {
+    "description": "Error message included in body",
+    "ctx": ["datakey", "decrypt"],
+    "http_reply": [
+      "HTTP/1.1 400 Bad Request\r\n",
+      "x-amzn-RequestId: b0e91dc8-3807-11e2-83c6-5912bf8ad066\r\n",
+      "x-amzn-ErrorType: ValidationException\r\n",
+      "Content-Type: application/json\r\n",
+      "Content-Length: 128\r\n",
+      "Date: Mon, 26 Nov 2012 20:27:25 GMT\r\n",
+      "\r\n",
+      "{\"message\":\"1 validation error detected: Value null at 'InstallS3Bucket' failed to satisfy constraint: Member must not be null\"}"
+    ],
+    "expect": "validation error"
+  },
+  {
+    "ctx": ["datakey", "decrypt"],
+    "description": "Empty body",
+    "http_reply": ["HTTP/1.1 500 Internal error\r\n", "\r\n"],
+    "expect": "Error in KMS response. HTTP status=500"
+  },
+  {
+    "ctx": ["datakey", "decrypt"],
+    "description": "Content-Length too large",
+    "http_reply": [
+      "HTTP/1.1 200 Don't worry about it. Everything is ok\r\n",
+      "Content-Length: 1234\r\n",
+      "\r\n",
+      "abc"
+    ],
+    "expect": "KMS response unfinished"
+  },
+  {
+    "ctx": ["datakey", "decrypt"],
+    "description": "Content-Length too small",
+    "http_reply": [
+      "HTTP/1.1 200 Don't worry about it. Everything is ok\r\n",
+      "Content-Length: 1\r\n",
+      "\r\n",
+      "abcasdfasdf"
+    ],
+    "expect": "KMS response fed too much data"
+  },
+  {
+    "ctx": ["datakey", "decrypt"],
+    "description": "Content-Length explicitly 0",
+    "http_reply": [
+      "HTTP/1.1 500 Internal error\r\n",
+      "Content-Length: 0\r\n",
+      "\r\n"
+    ],
+    "expect": "Error in KMS response. HTTP status=500"
+  },
+  {
+    "description": "Non-error non-200 HTTP status",
+    "ctx": ["datakey", "decrypt"],
+    "http_reply": [
+      "HTTP/1.1 100 Continue\r\n",
+      "\r\n"
+    ],
+    "expect": "Unsupported HTTP code in KMS response. HTTP status=100. Response body=\n"
+  },
+  {
+    "description": "Bad JSON in response",
+    "ctx": [
+      "datakey",
+      "decrypt",
+      "azure_oauth_datakey",
+      "azure_oauth_decrypt",
+      "azure_datakey",
+      "azure_decrypt",
+      "gcp_oauth_datakey",
+      "gcp_oauth_decrypt",
+      "gcp_datakey",
+      "gcp_decrypt"
+    ],
+    "http_reply": [
+      "HTTP/1.1 200 OK\r\n",
+      "x-amzn-RequestId: deeb35e5-4ecb-4bf1-9af5-84a54ff0af0e\r\n",
+      "Content-Type: application/x-amz-json-1.1\r\n",
+      "Content-Length: 7\r\n",
+      "\r\n",
+      "BADJSON"
+    ],
+    "expect": [
+      "Error parsing JSON in KMS response 'Got parse error at \"B\", position 0: \"SPECIAL_EXPECTED\"'. HTTP status=200. Response body=\n",
+      "BADJSON"
+    ]
+  },
+  {
+    "description": "Non-numeric status in response",
+    "ctx": ["decrypt"],
+    "http_reply": [
+      "HTTP/1.1 abc OK\r\n",
+      "x-amzn-RequestId: deeb35e5-4ecb-4bf1-9af5-84a54ff0af0e\r\n",
+      "Content-Type: application/x-amz-json-1.1\r\n",
+      "Content-Length: 233\r\n",
+      "\r\n"
+    ],
+    "expect": "Could not parse Status-Code"
+  },
+  {
+    "description": "Status exceeding int range in response",
+    "ctx": ["decrypt"],
+    "http_reply": [
+      "HTTP/1.1 18446744073709551617 OK\r\n",
+      "x-amzn-RequestId: deeb35e5-4ecb-4bf1-9af5-84a54ff0af0e\r\n",
+      "Content-Type: application/x-amz-json-1.1\r\n",
+      "Content-Length: 233\r\n",
+      "\r\n"
+    ],
+    "expect": "Could not parse Status-Code"
+  },
+  {
+    "description": "Successful oauth request",
+    "ctx": ["azure_oauth_datakey", "azure_oauth_decrypt", "gcp_oauth_datakey", "gcp_oauth_decrypt"],
+    "http_reply": [
+      "HTTP/1.1 200 OK\r\n",
+      "Cache-Control: no-store, no-cache\r\n",
+      "Pragma: no-cache\r\n",
+      "Content-Type: application/json; charset=utf-8\r\n",
+      "Expires: -1\r\n",
+      "Strict-Transport-Security: max-age=31536000; includeSubDomains\r\n",
+      "X-Content-Type-Options: nosniff\r\n",
+      "P3P: CP=\"DSP CUR OTPi IND OTRi ONL FIN\"\r\n",
+      "x-ms-request-id: d5f2911d-6574-42fd-bb6f-2e5755ef1200\r\n",
+      "x-ms-ests-server: 2.1.11140.11 - EST ProdSlices\r\n",
+      "Set-Cookie: fpc=Al-86TFxDiZDvC96TyXEMKU9q7ekAQAAAC3jGtcOAAAA; expires=Sun, 15-Nov-2020 00:41:18 GMT; path=/; secure; HttpOnly; SameSite=None\r\n",
+      "Set-Cookie: x-ms-gateway-slice=prod; path=/; secure; samesite=none; httponly\r\n",
+      "Set-Cookie: stsservicecookie=ests; path=/; secure; samesite=none; httponly\r\n",
+      "Date: Fri, 16 Oct 2020 00:41:17 GMT\r\n",
+      "Content-Length: 85\r\n",
+      "\r\n",
+      "{\"token_type\":\"Bearer\",\"expires_in\":3599,\"ext_expires_in\":3599,\"access_token\":\"AAAA\"}"
+    ],
+    "expect": "ok"
+  },
+  {
+    "description": "Invalid client id in Azure oauth request",
+    "ctx": ["azure_oauth_datakey", "azure_oauth_decrypt"],
+    "http_reply": [
+      "HTTP/1.1 400 Bad Request\r\n",
+      "Cache-Control: no-store, no-cache\r\n",
+      "Pragma: no-cache\r\n",
+      "Content-Type: application/json; charset=utf-8\r\n",
+      "Expires: -1\r\n",
+      "Strict-Transport-Security: max-age=31536000; includeSubDomains\r\n",
+      "X-Content-Type-Options: nosniff\r\n",
+      "P3P: CP=\"DSP CUR OTPi IND OTRi ONL FIN\"\r\n",
+      "x-ms-request-id: a1029d4e-fcae-4d24-bb46-ad4f3d8c1200\r\n",
+      "x-ms-ests-server: 2.1.11140.11 - EST ProdSlices\r\n",
+      "Set-Cookie: fpc=At8uDzjFi7ZAqLOAe9gcjXu3BobWAQAAALfoGtcOAAAA; expires=Sun, 15-Nov-2020 01:04:56 GMT; path=/; secure; HttpOnly; SameSite=None\r\n",
+      "Set-Cookie: x-ms-gateway-slice=prod; path=/; secure; samesite=none; httponly\r\n",
+      "Set-Cookie: stsservicecookie=ests; path=/; secure; samesite=none; httponly\r\n",
+      "Date: Fri, 16 Oct 2020 01:04:56 GMT\r\n",
+      "Content-Length: 752\r\n",
+      "\r\n",
+      "{\"error\":\"unauthorized_client\",\"error_description\":\"AADSTS700016: Application with identifier 'CLIENT_ID' was not found in the directory 'a1d0ca08-34e5-4a1b-924d-ef3cea0e4b49'. This can happen if the application has not been installed by the administrator of the tenant or consented to by any user in the tenant. You may have sent your authentication request to the wrong tenant.\\r\\nTrace ID: 5458a904-9ab0-4f95-97e5-24f47ca21400\\r\\nCorrelation ID: e43f3081-dd2e-4989-8975-d5e4cdd597c1\\r\\nTimestamp: 2020-10-16 01:11:04Z\",\"error_codes\":[700016],\"timestamp\":\"2020-10-16 01:11:04Z\",\"trace_id\":\"5458a904-9ab0-4f95-97e5-24f47ca21400\",\"correlation_id\":\"e43f3081-dd2e-4989-8975-d5e4cdd597c1\",\"error_uri\":\"https://login.microsoftonline.com/error?code=700016\"}"
+    ],
+    "expect": "Application with identifier 'CLIENT_ID' was not found"
+  },
+  {
+    "description": "GCP invalid signature",
+    "ctx": ["gcp_oauth_datakey", "gcp_oauth_decrypt"],
+    "http_reply": [
+      "HTTP/1.1 400 Bad Request\r\n",
+      "Content-Type: application/json; charset=UTF-8\r\n",
+      "Vary: X-Origin\r\n",
+      "Vary: Referer\r\n",
+      "Date: Fri, 16 Oct 2020 01:22:34 GMT\r\n",
+      "Server: scaffolding on HTTPServer2\r\n",
+      "Cache-Control: private\r\n",
+      "X-XSS-Protection: 0\r\n",
+      "X-Frame-Options: SAMEORIGIN\r\n",
+      "X-Content-Type-Options: nosniff\r\n",
+      "Alt-Svc: h3-Q050=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000,h3-27=\":443\"; ma=2592000,h3-T051=\":443\"; ma=2592000,h3-T050=\":443\"; ma=2592000,h3-Q046=\":443\"; ma=2592000,h3-Q043=\":443\"; ma=2592000,quic=\":443\"; ma=2592000; v=\"46,43\"\r\n",
+      "Accept-Ranges: none\r\n",
+      "Vary: Origin,Accept-Encoding\r\n",
+      "Transfer-Encoding: chunked\r\n",
+      "\r\n",
+      "46\r\n",
+      "{\"error\":\"invalid_grant\",\"error_description\":\"Invalid JWT Signature.\"}\r\n",
+      "0\r\n",
+      "\r\n"
+    ],
+    "expect": "Invalid JWT Signature"
+  },
+  {
+    "description": "GCP invalid ciphertext",
+    "ctx": ["gcp_datakey", "gcp_decrypt"],
+    "http_reply": [
+      "HTTP/1.1 400 Bad Request\r\n",
+      "Alt-Svc: h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000,h3-Q050=\":443\"; ma=2592000,h3-Q046=\":443\"; ma=2592000,h3-Q043=\":443\"; ma=2592000,quic=\":443\"; ma=2592000; v=\"46,43\"\r\n",
+      "Cache-Control: private\r\n",
+      "Content-Encoding: gzip\r\n",
+      "Content-Type: application/json; charset=UTF-8\r\n",
+      "Date: Wed, 20 Jul 2022 17:36:54 GMT\r\n",
+      "Server: ESF\r\n",
+      "Transfer-Encoding: chunked\r\n",
+      "Vary: Origin, X-Origin, Referer\r\n",
+      "X-Content-Type-Options: nosniff\r\n",
+      "X-Frame-Options: SAMEORIGIN\r\n",
+      "X-XSS-Protection: 0\r\n",
+      "\r\n",
+      "87\r\n",
+      "{\n",
+      "  \"error\": {\n",
+      "    \"code\": 400,\n",
+      "    \"message\": \"Decryption failed: the ciphertext is invalid.\",\n",
+      "    \"status\": \"INVALID_ARGUMENT\"\n",
+      "  }\n",
+      "}\n",
+      "\r\n",
+      "0\r\n",
+      "\r\n"      
+    ],
+    "expect": [
+      "Error in KMS response. HTTP status=400. Response body=\n",
+      "{\n",
+      "  \"error\": {\n",
+      "    \"code\": 400,\n",
+      "    \"message\": \"Decryption failed: the ciphertext is invalid.\",\n",
+      "    \"status\": \"INVALID_ARGUMENT\"\n",
+      "  }\n",
+      "}\n"
+    ]
+  },
+  {
+    "description": "JSON in response missing needed field",
+    "ctx": [
+      "datakey",
+      "decrypt",
+      "azure_oauth_datakey",
+      "azure_oauth_decrypt",
+      "azure_datakey",
+      "azure_decrypt",
+      "gcp_oauth_datakey",
+      "gcp_oauth_decrypt",
+      "gcp_datakey",
+      "gcp_decrypt"
+    ],
+    "http_reply": [
+      "HTTP/1.1 200 OK\r\n",
+      "x-amzn-RequestId: deeb35e5-4ecb-4bf1-9af5-84a54ff0af0e\r\n",
+      "Content-Type: application/x-amz-json-1.1\r\n",
+      "Content-Length: 8\r\n",
+      "\r\n",
+      "{\"x\": 1}"
+    ],
+    "expect": [
+      "HTTP status=200. Response body=\n",
+      "{\"x\": 1}"
+    ]
+  },
+  {
+    "description": "Encryption response with invalid base64",
+    "ctx": ["datakey"],
+    "http_reply": [
+      "HTTP/1.1 200 OK\r\n",
+      "x-amzn-RequestId: deeb35e5-4ecb-4bf1-9af5-84a54ff0af0e\r\n",
+      "Content-Type: application/x-amz-json-1.1\r\n",
+      "Content-Length: 111\r\n",
+      "Connection: close\r\n",
+      "\r\n",
+      "{\"KeyId\": \"arn:aws:kms:us-east-1:579766882180:key/89fcc2c4-08b0-4bd9-9f25-e30687b580d0\", \"CiphertextBlob\": \"A\"}"
+    ],
+    "expect": "Failed to base64 decode"
+  }
+]
