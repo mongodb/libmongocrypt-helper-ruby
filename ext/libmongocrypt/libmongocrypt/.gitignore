@@ -1,0 +1,55 @@
+doc/html
+doc/latex
+test/schema.json
+
+.vscode
+# Default build directories
+cmake-build
+cmake-build-nocrypto
+_build/
+
+# CMake generated files
+*.sln
+*.vcxproj
+*.vcxproj.filters
+*.xcodeproj
+CMakeCache.txt
+CTestTestFile.cmake
+CMakeFiles
+CMakeScripts
+Debug/*
+Makefile
+Win32/*
+cmake_install.cmake
+x64/*
+Testing/
+CPackConfig.cmake
+CPackSourceConfig.cmake
+dist_manifest.txt
+*.sdf
+.vs
+install_manifest.txt
+
+# Build artifacts.
+*.a
+*.dylib
+*.gcda
+*.gcno
+*.gz
+*.lo
+*.o
+*.pc
+*.so
+*.so.*
+
+# Generated header
+src/mongocrypt-export.h
+
+# IDEs
+.idea/
+
+VERSION_CURRENT
+
+.csfle
+*.pyc
+.DS_Store
