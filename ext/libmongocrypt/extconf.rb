@@ -1,5 +1,6 @@
 require 'mkmf'
 require 'rbconfig'
+require_relative '../../lib/libmongocrypt_helper/version.rb'
 
 CMAKE = find_executable('cmake')
 abort "ERROR: CMake is required to build libmongocrypt" unless CMAKE
@@ -30,8 +31,8 @@ cmake_opts = %w(
   -DMONGOCRYPT_CRYPTO=none
   -DMONGOCRYPT_ENABLE_CRYPTO=0
   -DBUILD_TESTING=0
-  -DBUILD_VERSION=1.7.4
 )
+cmake_opts << "-DBUILD_VERSION=#{LibmongocryptHelper::VERSION}"
 system("#{CMAKE} #{cmake_opts.join(' ')}  #{cmake_dir} -B#{build_dir}")
 
 # Check if the build directory was successfully generated

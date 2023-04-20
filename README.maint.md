@@ -9,12 +9,11 @@ Edit `lib/libmongocrypt_helper/version.rb` and:
 `libmongocrypt` that you want to package.
 2. Update the `VERSION` constant to the version of the helper, which is
 derived from `libmongocrypt` version as described below.
-3. Update `BUILD_VERSION` cmake option in `ext/libmongocrypt/extconf.rb`.
-4. Download the source code of the corresponding version of `libmongocrypt` from
+3. Download the source code of the corresponding version of `libmongocrypt` from
 https://github.com/mongodb/libmongocrypt/releases/, and unpack it to
 `ext/libmongocrypt/libmongicrypt`.
-5. Commit the changes including the new shared library.
-6. Run `./release.sh` to create a gem and push it to RubyGems.
+4. Commit the changes including the new shared library.
+5. Run `./release.sh` to create a gem and push it to RubyGems.
 
 ## Helper Version Scheme
 
