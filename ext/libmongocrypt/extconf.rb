@@ -32,7 +32,7 @@ cmake_opts = %w(
   -DMONGOCRYPT_ENABLE_CRYPTO=0
   -DBUILD_TESTING=0
 )
-cmake_opts << "-DBUILD_VERSION=#{LibmongocryptHelper::VERSION}"
+cmake_opts << "-DBUILD_VERSION=#{LibmongocryptHelper::LIBMONGOCRYPT_VERSION}"
 system("#{CMAKE} #{cmake_opts.join(' ')}  #{cmake_dir} -B#{build_dir}")
 
 # Check if the build directory was successfully generated
