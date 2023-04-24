@@ -3,10 +3,10 @@ require 'libmongocrypt_helper/version'
 module LibmongocryptHelper
   def libmongocrypt_path
     @libmongocrypt_path ||= begin
-      lib_file_extension = case RUBY_PLATFORM
+      lib_file_extension = case RbConfig::CONFIG['target_os']
       when /linux/ then "so"
       when /darwin/ then "dylib"
-      else raise "ERROR: this gem supports only linux and macos"
+      else raise "ERROR: this gem supports only linux and macos, #{RbConfig::CONFIG['target_os']} is not supported"
       end
 
       File.join(

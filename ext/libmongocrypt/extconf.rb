@@ -45,10 +45,10 @@ Dir.chdir(build_dir) do
   system(MAKE)
 end
 
-lib_file_extension = case RUBY_PLATFORM
+lib_file_extension = case RbConfig::CONFIG['target_os']
                      when /linux/ then "so"
                      when /darwin/ then "dylib"
-                     else abort "ERROR: this gem supports only linux and macos"
+                     else abort "ERROR: this gem supports only linux and macos, #{RbConfig::CONFIG['target_os']} is not supported"
                      end
 
 lib_file = File.join(build_dir, "#{extension_name}.#{lib_file_extension}")
