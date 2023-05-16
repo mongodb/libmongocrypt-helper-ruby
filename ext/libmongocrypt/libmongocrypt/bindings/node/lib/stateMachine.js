@@ -1,5 +1,7 @@
 'use strict';
 
+const { promisify } = require('util');
+
 module.exports = function (modules) {
   const tls = require('tls');
   const net = require('net');
@@ -15,7 +17,7 @@ module.exports = function (modules) {
   const debug = common.debug;
   const databaseNamespace = common.databaseNamespace;
   const collectionNamespace = common.collectionNamespace;
-  const MongoCryptError = common.MongoCryptError;
+  const { MongoCryptError } = require('./errors');
   const { BufferPool } = require('./buffer_pool');
 
   // libmongocrypt states
@@ -90,6 +92,10 @@ module.exports = function (modules) {
     constructor(options) {
       this.options = options || {};
       this.bson = options.bson;
+
+      this.executeAsync = promisify((autoEncrypter, context, callback) =>
+        this.execute(autoEncrypter, context, callback)
+      );
     }
 
     /**
@@ -407,8 +413,7 @@ module.exports = function (modules) {
         .db(dbName)
         .listCollections(filter, {
           promoteLongs: false,
-          promoteValues: false,
-          session: this.options.session
+          promoteValues: false
         })
         .toArray()
         .then(
@@ -470,7 +475,7 @@ module.exports = function (modules) {
       client
         .db(dbName)
         .collection(collectionName, { readConcern: { level: 'majority' } })
-        .find(filter, { session: this.options.session })
+        .find(filter)
         .toArray()
         .then(
           keys => {

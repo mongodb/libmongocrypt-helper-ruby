@@ -1,6 +1,6 @@
 source 'https://rubygems.org'
 
-# Dependencies specified in simple_clipboard.gemspec
+# Dependencies specified in libmongocrypt-helper-ruby.gemspec
 gemspec
 
 group :development, :test do

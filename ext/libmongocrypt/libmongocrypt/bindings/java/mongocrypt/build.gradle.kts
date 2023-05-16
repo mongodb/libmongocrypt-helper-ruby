@@ -43,7 +43,7 @@ repositories {
 }
 
 group = "org.mongodb"
-version = "1.7.4-SNAPSHOT"
+version = "1.8.0-SNAPSHOT"
 description = "MongoDB client-side crypto support"
 
 java {
@@ -133,7 +133,6 @@ tasks.register<Copy>("unzipJava") {
     }
     into(jnaResourcesDir)
     mustRunAfter("downloadJava")
-    tasks.withType<ProcessResources>().forEach { t -> t.mustRunAfter("unzipJava") }
 
     doLast {
         println("jna.library.path contents: \n  ${fileTree(jnaResourcesDir).files.joinToString(",\n  ")}")
@@ -317,6 +316,7 @@ tasks.register("publishToSonatype") {
         tasks.withType<PublishToMavenRepository>().forEach { t -> t.mustRunAfter("downloadJnaLibs", "downloadJava", "unzipJava") }
     }
 }
+
 
 /*
 For security we allow the signing-related project properties to be passed in as environment variables, which

@@ -23,6 +23,7 @@ import org.bson.BsonBinarySubType;
 import org.bson.BsonDocument;
 import org.bson.BsonString;
 import org.bson.RawBsonDocument;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.BufferedReader;
@@ -197,14 +198,15 @@ public class MongoCryptTest {
         mongoCrypt.close();
     }
 
+
     @Test
     public void testExplicitExpressionEncryption() {
         MongoCrypt mongoCrypt = createMongoCrypt();
         assertNotNull(mongoCrypt);
 
-        BsonDocument valueToEncrypt = getResourceAsDocument("fle2-find-range-explicit/int32/value-to-encrypt.json");
-        BsonDocument rangeOptions = getResourceAsDocument("fle2-find-range-explicit/int32/rangeopts.json");
-        BsonDocument expectedEncryptedPayload = getResourceAsDocument("fle2-find-range-explicit/int32/encrypted-payload.json");
+        BsonDocument valueToEncrypt = getResourceAsDocument("fle2-find-range-explicit-v2/int32/value-to-encrypt.json");
+        BsonDocument rangeOptions = getResourceAsDocument("fle2-find-range-explicit-v2/int32/rangeopts.json");
+        BsonDocument expectedEncryptedPayload = getResourceAsDocument("fle2-find-range-explicit-v2/int32/encrypted-payload.json");
 
         MongoExplicitEncryptOptions options = MongoExplicitEncryptOptions.builder()
                 .keyId(new BsonBinary(BsonBinarySubType.UUID_STANDARD, Base64.getDecoder().decode("q83vqxI0mHYSNBI0VniQEg==")))
@@ -216,7 +218,7 @@ public class MongoCryptTest {
         MongoCryptContext encryptor = mongoCrypt.createEncryptExpressionContext(valueToEncrypt, options);
         assertEquals(State.NEED_MONGO_KEYS, encryptor.getState());
 
-        testKeyDecryptor(encryptor, "fle2-find-range-explicit/int32/key-filter.json", "keys/ABCDEFAB123498761234123456789012-local-document.json");
+        testKeyDecryptor(encryptor, "fle2-find-range-explicit-v2/int32/key-filter.json", "keys/ABCDEFAB123498761234123456789012-local-document.json");
 
         assertEquals(State.READY, encryptor.getState());
 

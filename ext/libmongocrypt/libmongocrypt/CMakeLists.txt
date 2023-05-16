@@ -78,13 +78,13 @@ if (ENABLE_MORE_WARNINGS_AS_ERRORS)
       )
 endif ()
 
-find_package (Threads REQUIRED)
-
 add_subdirectory (bindings/cs)
 
 include (GenerateExportHeader)
 
 include (CTest)
+include (Platform)
+
 
 set (MONGOCRYPT_PUBLIC_HEADERS
    src/mongocrypt-compat.h
@@ -99,11 +99,17 @@ set (MONGOCRYPT_SOURCES
    src/mc-array.c
    src/mc-efc.c
    src/mc-fle2-find-range-payload.c
+   src/mc-fle2-find-range-payload-v2.c
    src/mc-fle2-insert-update-payload.c
+   src/mc-fle2-insert-update-payload-v2.c
    src/mc-fle2-encryption-placeholder.c
    src/mc-fle2-find-equality-payload.c
+   src/mc-fle2-find-equality-payload-v2.c
    src/mc-fle2-payload-iev.c
+   src/mc-fle2-payload-iev-v2.c
    src/mc-fle2-payload-uev.c
+   src/mc-fle2-payload-uev-common.c
+   src/mc-fle2-payload-uev-v2.c
    src/mc-fle2-rfds.c
    src/mc-range-edge-generation.c
    src/mc-range-mincover.c
@@ -111,6 +117,7 @@ set (MONGOCRYPT_SOURCES
    src/mc-rangeopts.c
    src/mc-reader.c
    src/mc-tokens.c
+   src/mc-writer.c
    src/mongocrypt-binary.c
    src/mongocrypt-buffer.c
    src/mongocrypt-cache.c
@@ -270,26 +277,15 @@ target_include_directories (
    PUBLIC
       "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/src>"
    )
-include (TestBigEndian)
-TEST_BIG_ENDIAN (MONGOCRYPT_BIG_ENDIAN)
-if (MONGOCRYPT_BIG_ENDIAN)
-   message ("Detected byte order: big endian")
-   list (APPEND MONGOCRYPT_DEFINITIONS MONGOCRYPT_BIG_ENDIAN)
-else ()
-   message ("Detected byte order: little endian")
-   list (APPEND MONGOCRYPT_DEFINITIONS MONGOCRYPT_LITTLE_ENDIAN)
-endif ()
-target_compile_definitions (mongocrypt PRIVATE ${MONGOCRYPT_DEFINITIONS})
 target_link_libraries (
    mongocrypt
    PRIVATE
       _mongocrypt::libbson_for_shared
-      Threads::Threads
       kms_message_static
       $<BUILD_INTERFACE:mongo::mlib>
    PUBLIC
+      mongocrypt::platform
       ${maybe_dfp_library}
-      ${CMAKE_DL_LIBS}
    )
 
 if (NOT USE_SHARED_LIBBSON)
@@ -333,8 +329,6 @@ target_include_directories (
    )
 target_compile_definitions (
    mongocrypt_static
-   PRIVATE
-      ${MONGOCRYPT_DEFINITIONS}
    PUBLIC
       MONGOCRYPT_STATIC_DEFINE
       KMS_MSG_STATIC
@@ -346,9 +340,8 @@ target_link_libraries (
       kms_message_static
       $<BUILD_INTERFACE:mongo::mlib>
    PUBLIC
+      mongocrypt::platform
       ${maybe_dfp_library}
-      ${CMAKE_THREAD_LIBS_INIT}
-      ${CMAKE_DL_LIBS}
    )
 set (PKG_CONFIG_STATIC_LIBS "\${prefix}/${CMAKE_INSTALL_LIBDIR}/libmongocrypt-static.a")
 set (PKG_CONFIG_STATIC_LIBS "${PKG_CONFIG_STATIC_LIBS} ${CMAKE_THREAD_LIBS_INIT}")
@@ -394,8 +387,6 @@ endif ()
 if (NOT APPLE)
    find_library (M_LIBRARY m)
    if (M_LIBRARY)
-      target_link_libraries (mongocrypt PRIVATE ${M_LIBRARY})
-      target_link_libraries (mongocrypt_static PRIVATE ${M_LIBRARY})
       set (PKG_CONFIG_STATIC_LIBS "${PKG_CONFIG_STATIC_LIBS} -lm")
    endif ()
 endif ()
@@ -461,9 +452,14 @@ endif ()
 set (TEST_MONGOCRYPT_SOURCES
    test/test-gcp-auth.c
    test/test-mc-efc.c
+   test/test-mc-fle2-find-equality-payload-v2.c
+   test/test-mc-fle2-find-range-payload-v2.c
    test/test-mc-fle2-payload-iev.c
+   test/test-mc-fle2-payload-iev-v2.c
    test/test-mc-fle2-payload-iup.c
+   test/test-mc-fle2-payload-iup-v2.c
    test/test-mc-fle2-payload-uev.c
+   test/test-mc-fle2-payload-uev-v2.c
    test/test-mc-fle2-rfds.c
    test/test-mc-range-edge-generation.c
    test/test-mc-range-mincover.c
@@ -471,6 +467,7 @@ set (TEST_MONGOCRYPT_SOURCES
    test/test-mc-reader.c
    test/test-mc-tokens.c
    test/test-mc-range-encoding.c
+   test/test-mc-writer.c
    test/test-mongocrypt-assert-match-bson.c
    test/test-mongocrypt-buffer.c
    test/test-mongocrypt-cache.c
@@ -510,8 +507,6 @@ target_include_directories (test-mongocrypt PRIVATE ./src "${CMAKE_CURRENT_SOURC
 target_link_libraries (test-mongocrypt PRIVATE _mongocrypt::libbson_for_static mongocrypt_static mongo::mlib)
 target_include_directories (test-mongocrypt PRIVATE "${CMAKE_CURRENT_LIST_DIR}/test")
 target_compile_definitions (test-mongocrypt PRIVATE
-   ${BSON_DEFINITIONS}
-   ${MONGOCRYPT_DEFINITIONS}
    # Set a definition so that testcases can know where test-mongocrypt.exe was written to
    "TEST_MONGOCRYPT_OUTPUT_PATH=\"$<TARGET_FILE:test-mongocrypt>\""
    # Tell test-mongocrypt whether we have a real csfle library for testing
@@ -547,7 +542,6 @@ if ("cxx_relaxed_constexpr" IN_LIST CMAKE_CXX_COMPILE_FEATURES)
          mongocrypt
          mongo::mlib
          ${maybe_dfp_library}
-         Threads::Threads
          _mongocrypt::libbson_for_static
          )
       add_test ("${test_name}" "${exe_name}")

@@ -1,11 +1,13 @@
 # ChangeLog
-## 1.7.4
-### Fixed
-- Fix build on macOS Ventura.
-## 1.7.3
-### Fixed
-- Fix KMIP Register request for versions 1.12-1.13.0 of Hashicorp Vault.
-- Fix possible memory leak when encrypting malformed BSON with Queryable Encryption.
+## 1.8.0
+This release adds stable support of the Queryable Encryption (QE) feature for the "Indexed" and "Unindexed" algorithms.
+## 1.8.0-alpha1
+This release makes backwards breaking changes to Queryable Encryption (QE) behavior added in the 1.8.0-alpha0 release:
+- Do not apply default to min/max values for int/long/date.
+- Enable the QEv2 protocol by default. Remove function to enable QEv2.
+## 1.8.0-alpha0
+### Improvements
+- Support Queryable Encryption v2 protocol.
 ## 1.7.2
 ### Improvements
 - Add toggle for Decimal128 Range Support.

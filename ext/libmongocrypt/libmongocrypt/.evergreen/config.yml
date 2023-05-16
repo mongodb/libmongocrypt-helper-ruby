@@ -148,7 +148,7 @@ functions:
           BUILD_VARIANT: ${build_variant}
           NODE_NVM_USE_VERSION: ${nvm_use_version|18}
 
-  "build and test node no optional dependencies":
+  "build and test node no peer dependencies":
     - command: "subprocess.exec"
       params:
         binary: bash
@@ -160,7 +160,7 @@ functions:
           NODE_GITHUB_TOKEN: ${node_github_token}
           DISTRO_ID: ${distro_id}
           BUILD_VARIANT: ${build_variant}
-          NPM_OPTIONS: "--no-optional"
+          OMIT_PEER_DEPS: "true"
           NODE_NVM_USE_VERSION: ${nvm_use_version|18}
 
   "attach node xunit results":
@@ -352,6 +352,12 @@ functions:
         permissions: public-read
         content_type: ${content_type|application/gzip}
         display_name: Release Python files all
+  earthly:
+    - command: shell.exec
+      params:
+        shell: bash
+        working_dir: ${working_dir|libmongocrypt}
+        script: bash ${workdir}/libmongocrypt/.evergreen/earthly.sh ${args}
 
 tasks:
 - name: build-and-test-and-upload
@@ -378,10 +384,11 @@ tasks:
   - func: "fetch source"
   - func: "build and test"
     vars:
-      compile_env: >
+      compile_env: >-
         ${compile_env|}
         LIBMONGOCRYPT_EXTRA_CFLAGS="-fsanitize=address -pthread"
-        ASAN_OPTIONS="detect_leaks=1"
+        # Add detect_odr_violation=0 to ASAN_OPTIONS to ignore odr-violation in IntelDFP symbol: __dpml_bid_globals_table
+        ASAN_OPTIONS="detect_leaks=1 detect_odr_violation=0"
 
 - name: build-and-test-asan-mac
   commands:
@@ -459,7 +466,7 @@ tasks:
     - func: "fetch source"
     - func: "build python release"
     - func: "test python release"
-      vars: { PYTHON: python }
+      vars: { PYTHON: /opt/python/3.7/bin/python3 }
     - func: "upload python release"
 
 - name: "release-python-windows"
@@ -469,7 +476,7 @@ tasks:
     - func: "fetch source"
     - func: "build python release"
     - func: "test python release"
-      vars: { PYTHON: python }
+      vars: { PYTHON: C:/python/Python37/python.exe }
     - func: "upload python release"
 
 - name: "release-python-combine"
@@ -495,10 +502,10 @@ tasks:
     - func: "build and test node"
     - func: "attach node xunit results"
 
-- name: build-and-test-node-no-optional-dependencies
+- name: build-and-test-node-no-peer-dependencies
   commands:
     - func: "fetch source"
-    - func: "build and test node no optional dependencies"
+    - func: "build and test node no peer dependencies"
     - func: "attach node xunit results"
 
 # Note: keep this disabled unless you want master to force-push
@@ -896,6 +903,33 @@ tasks:
         content_type: ${content_type|application/x-gzip}
         display_name: "deb.tar.gz"
 
+- name: rpm-package-build
+  tags: [packaging]
+  run_on: &docker-distros
+    # * The RHEL76-docker distro runs an old and unsupported version of Docker. 
+    # * (We requires the --mount parameter)
+    - ubuntu2004-small
+    - ubuntu2004
+    - ubuntu1804
+    - ubuntu1804-medium
+    - debian10
+    - debian11
+    - amazon2
+  commands:
+    - func: fetch source
+    - func: earthly
+      vars:
+        args: +rpm-runtime-test
+
+- name: check-format
+  tags: [misc]
+  run_on: *docker-distros
+  commands:
+    - func: fetch source
+    - func: earthly
+      vars:
+        args: +check-format
+
 pre:
   # Update the evergreen expansion to dynamically set the ${libmongocrypt_s3_suffix} and ${libmongocrypt_s3_suffix_copy} expansions.
   - command: "shell.exec"
@@ -949,7 +983,7 @@ buildvariants:
   - build-and-test-shared-bson
   - build-and-test-asan
   - build-and-test-node
-  - build-and-test-node-no-optional-dependencies
+  - build-and-test-node-no-peer-dependencies
   - test-java
   - name: publish-packages
     distros:
@@ -962,7 +996,7 @@ buildvariants:
   - build-and-test-shared-bson
   - build-and-test-asan-mac
   - build-and-test-node
-  - build-and-test-node-no-optional-dependencies
+  - build-and-test-node-no-peer-dependencies
   - build-and-test-csharp
   - test-python
   - test-java
@@ -1007,7 +1041,7 @@ buildvariants:
   - build-and-test-shared-bson
   - build-and-test-csharp
   - build-and-test-node
-  - build-and-test-node-no-optional-dependencies
+  - build-and-test-node-no-peer-dependencies
   - test-java
   - windows-upload-check
 - name: windows-test-python
@@ -1033,7 +1067,7 @@ buildvariants:
   - build-and-test-and-upload
   - build-and-test-shared-bson
   - build-and-test-node
-  - build-and-test-node-no-optional-dependencies
+  - build-and-test-node-no-peer-dependencies
   - test-java
   - name: publish-packages
     distros:
@@ -1051,7 +1085,7 @@ buildvariants:
   - build-and-test-shared-bson
   - build-and-test-asan
   - build-and-test-node
-  - build-and-test-node-no-optional-dependencies
+  - build-and-test-node-no-peer-dependencies
   - test-java
   - name: publish-packages
     distros:
@@ -1069,7 +1103,7 @@ buildvariants:
   - build-and-test-shared-bson
   - build-and-test-asan
   - build-and-test-node
-  - build-and-test-node-no-optional-dependencies
+  - build-and-test-node-no-peer-dependencies
   - name: publish-packages
     distros:
     - rhel70-small
@@ -1085,7 +1119,7 @@ buildvariants:
   - build-and-test-shared-bson
   - build-and-test-asan
   - build-and-test-node
-  - build-and-test-node-no-optional-dependencies
+  - build-and-test-node-no-peer-dependencies
   - test-java
   - name: publish-packages
     distros:
@@ -1102,7 +1136,7 @@ buildvariants:
   - build-and-test-shared-bson
   - build-and-test-asan
   - build-and-test-node
-  - build-and-test-node-no-optional-dependencies
+  - build-and-test-node-no-peer-dependencies
   - test-java
   - name: publish-packages
     distros:
@@ -1120,7 +1154,7 @@ buildvariants:
   - build-and-test-shared-bson
   - build-and-test-asan
   - build-and-test-node
-  - build-and-test-node-no-optional-dependencies
+  - build-and-test-node-no-peer-dependencies
   - test-java
   - name: publish-packages
     distros:
@@ -1151,7 +1185,7 @@ buildvariants:
   - build-and-test-and-upload
   - build-and-test-shared-bson
   - build-and-test-node
-  - build-and-test-node-no-optional-dependencies
+  - build-and-test-node-no-peer-dependencies
   - test-python
   - test-java
   - name: publish-packages
@@ -1182,7 +1216,7 @@ buildvariants:
   - build-and-test-and-upload
   - build-and-test-shared-bson
   - build-and-test-node
-  - build-and-test-node-no-optional-dependencies
+  - build-and-test-node-no-peer-dependencies
   - test-java
   - name: publish-packages
     distros:
@@ -1200,7 +1234,7 @@ buildvariants:
   - build-and-test-shared-bson
   - build-and-test-asan
   - build-and-test-node
-  - build-and-test-node-no-optional-dependencies
+  - build-and-test-node-no-peer-dependencies
   - test-java
   - name: publish-packages
     distros:
@@ -1218,7 +1252,7 @@ buildvariants:
   - build-and-test-shared-bson
   - build-and-test-asan
   - build-and-test-node
-  - build-and-test-node-no-optional-dependencies
+  - build-and-test-node-no-peer-dependencies
   - test-java
   - name: publish-packages
     distros:
@@ -1236,7 +1270,7 @@ buildvariants:
   - build-and-test-shared-bson
   - build-and-test-asan
   - build-and-test-node
-  - build-and-test-node-no-optional-dependencies
+  - build-and-test-node-no-peer-dependencies
   - test-java
   - name: publish-packages
     distros:
@@ -1254,7 +1288,7 @@ buildvariants:
   - build-and-test-shared-bson
   - build-and-test-asan
   - build-and-test-node
-  - build-and-test-node-no-optional-dependencies
+  - build-and-test-node-no-peer-dependencies
   - build-and-test-csharp
   - test-java
   - name: publish-packages
@@ -1283,7 +1317,7 @@ buildvariants:
   - build-and-test-shared-bson
   - build-and-test-asan
   - build-and-test-node
-  - build-and-test-node-no-optional-dependencies
+  - build-and-test-node-no-peer-dependencies
   - test-java
   - name: publish-packages
     distros:
@@ -1301,7 +1335,7 @@ buildvariants:
   - build-and-test-shared-bson
   - build-and-test-asan
   - build-and-test-node
-  - build-and-test-node-no-optional-dependencies
+  - build-and-test-node-no-peer-dependencies
   - build-and-test-csharp
   - test-java
   - upload-java
@@ -1318,7 +1352,7 @@ buildvariants:
   - build-and-test-shared-bson
   - build-and-test-asan
   - build-and-test-node
-  - build-and-test-node-no-optional-dependencies
+  - build-and-test-node-no-peer-dependencies
   - test-java
   - name: publish-packages
     distros:
@@ -1337,7 +1371,7 @@ buildvariants:
   - build-and-test-shared-bson
   - build-and-test-asan
   - build-and-test-node
-  - build-and-test-node-no-optional-dependencies
+  - build-and-test-node-no-peer-dependencies
   # see https://jira.mongodb.org/browse/MONGOCRYPT-515
   #- build-and-test-csharp
   - test-java
@@ -1357,7 +1391,7 @@ buildvariants:
   - build-and-test-shared-bson
   - build-and-test-asan
   - build-and-test-node
-  - build-and-test-node-no-optional-dependencies
+  - build-and-test-node-no-peer-dependencies
   - test-java
   - name: publish-packages
     distros:
@@ -1376,6 +1410,9 @@ buildvariants:
 - name: packaging
   display_name: "Linux Distro Packaging"
   tasks: [.packaging]
+- name: misc
+  display_name: Miscellaneous
+  tasks: [.misc]
 - name: macos
   display_name: macOS m1 (Apple LLVM)
   run_on: macos-1100-arm64
@@ -1384,7 +1421,7 @@ buildvariants:
   tasks:
   - build-and-test-and-upload
   - build-and-test-node
-  - build-and-test-node-no-optional-dependencies
+  - build-and-test-node-no-peer-dependencies
   - test-python
   - test-java
 - name: windows-vs2017-32bit

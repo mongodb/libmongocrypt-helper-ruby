@@ -1,9 +1,7 @@
 'use strict';
 
 const sinon = require('sinon');
-const chai = require('chai');
-const expect = chai.expect;
-chai.use(require('sinon-chai'));
+const { expect } = require('chai');
 const mongodb = require('mongodb');
 const MongoClient = mongodb.MongoClient;
 const stateMachine = require('../lib/stateMachine')({ mongodb });
@@ -185,48 +183,6 @@ describe('cryptoCallbacks', function () {
             const encryptOptions = {
               keyId: dataKey,
               algorithm: 'AEAD_AES_256_CBC_HMAC_SHA_512-Deterministic'
-            };
-
-            encryption.encrypt('hello', encryptOptions, (err, encryptedValue) => {
-              if (err) return finish(err);
-              encryption.decrypt(encryptedValue, err => finish(err));
-            });
-          });
-        } catch (e) {
-          done(new Error('We should not be here'));
-        }
-      });
-    });
-
-    // AES-256-CTR is used specifically with FLE2 only
-    ['aes256CtrEncryptHook', 'aes256CtrDecryptHook'].forEach(hookName => {
-      it(`should properly propagate an error when ${hookName} fails`, function (done) {
-        const error = new Error('some random error text');
-        this.sinon.stub(cryptoCallbacks, hookName).returns(error);
-
-        const encryption = new ClientEncryption(this.client, {
-          keyVaultNamespace: 'test.encryption',
-          kmsProviders
-        });
-
-        function finish(err) {
-          try {
-            expect(err, 'Expected an error to exist').to.exist;
-            expect(err).to.have.property('message', error.message);
-            done();
-          } catch (e) {
-            done(e);
-          }
-        }
-
-        try {
-          encryption.createDataKey('aws', dataKeyOptions, (err, dataKey) => {
-            if (err) return finish(err);
-
-            const encryptOptions = {
-              keyId: dataKey,
-              algorithm: 'Indexed',
-              contentionFactor: 0
             };
 
             encryption.encrypt('hello', encryptOptions, (err, encryptedValue) => {
