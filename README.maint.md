@@ -11,7 +11,7 @@ Edit `lib/libmongocrypt_helper/version.rb` and:
 derived from `libmongocrypt` version as described below.
 3. Download the source code of the corresponding version of `libmongocrypt` from
 https://github.com/mongodb/libmongocrypt/releases/, and unpack it to
-`ext/libmongocrypt/libmongicrypt`.
+`ext/libmongocrypt/libmongocrypt`.
 4. Commit the changes including the new shared library.
 5. Run `./release.sh` to create a gem and push it to RubyGems.
 

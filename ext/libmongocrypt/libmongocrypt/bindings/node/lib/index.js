@@ -9,7 +9,16 @@ function loadDefaultModule() {
   return defaultModule;
 }
 
-const MongoCryptError = require('./common').MongoCryptError;
+const {
+  MongoCryptError,
+  MongoCryptCreateEncryptedCollectionError,
+  MongoCryptCreateDataKeyError,
+  MongoCryptAzureKMSRequestError,
+  MongoCryptKMSRequestNetworkTimeoutError
+} = require('./errors');
+
+const { fetchAzureKMSToken } = require('./providers/index');
+
 function extension(mongodb) {
   const modules = { mongodb };
 
@@ -17,16 +26,32 @@ function extension(mongodb) {
   modules.autoEncrypter = require('./autoEncrypter')(modules);
   modules.clientEncryption = require('./clientEncryption')(modules);
 
-  return {
+  const exports = {
     AutoEncrypter: modules.autoEncrypter.AutoEncrypter,
     ClientEncryption: modules.clientEncryption.ClientEncryption,
-    MongoCryptError
+    MongoCryptError,
+    MongoCryptCreateEncryptedCollectionError,
+    MongoCryptCreateDataKeyError,
+    MongoCryptAzureKMSRequestError,
+    MongoCryptKMSRequestNetworkTimeoutError
   };
+
+  Object.defineProperty(exports, '___azureKMSProseTestExports', {
+    enumerable: false,
+    configurable: false,
+    value: fetchAzureKMSToken
+  });
+
+  return exports;
 }
 
 module.exports = {
   extension,
   MongoCryptError,
+  MongoCryptCreateEncryptedCollectionError,
+  MongoCryptCreateDataKeyError,
+  MongoCryptAzureKMSRequestError,
+  MongoCryptKMSRequestNetworkTimeoutError,
   get AutoEncrypter() {
     const m = loadDefaultModule();
     delete module.exports.AutoEncrypter;
@@ -40,3 +65,9 @@ module.exports = {
     return m.ClientEncryption;
   }
 };
+
+Object.defineProperty(module.exports, '___azureKMSProseTestExports', {
+  enumerable: false,
+  configurable: false,
+  value: fetchAzureKMSToken
+});
