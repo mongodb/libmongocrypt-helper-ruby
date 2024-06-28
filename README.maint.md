@@ -10,11 +10,11 @@ Edit `lib/libmongocrypt_helper/version.rb` and:
 2. Update the `VERSION` constant to the version of the helper, which is
 derived from `libmongocrypt` version as described below.
 3. Download the source code of the corresponding version of `libmongocrypt` from
-https://github.com/mongodb/libmongocrypt/releases/, and unpack it to
+<https://github.com/mongodb/libmongocrypt/releases/>, and unpack it to
 `ext/libmongocrypt/libmongocrypt`.
 4. Update the SBOM lite file by running `etc/update-sbom.sh`
 5. Commit the changes including the new shared library.
-6Run `./release.sh` to create a gem and push it to RubyGems.
+6. Create a PR for the changes. Once approved and merged, run the "Release" action on GitHub to create and publish the new gem.
 
 ## Helper Version Scheme
 
