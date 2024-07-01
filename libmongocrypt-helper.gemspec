@@ -1,4 +1,4 @@
-lib = File.expand_path('../lib', __FILE__)
+lib = File.expand_path('lib', __dir__)
 $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 require 'libmongocrypt_helper/version'
 
@@ -21,14 +21,7 @@ Gem::Specification.new do |s|
     'source_code_uri' => 'https://github.com/mongodb/libmongocrypt-helper-ruby'
   }
 
-  if File.exist?('gem-private_key.pem')
-    s.signing_key = 'gem-private_key.pem'
-    s.cert_chain = ['gem-public_cert.pem']
-  else
-    warn "[#{s.name}] Warning: No private key present, creating unsigned gem."
-  end
-
-  #s.files = %w(CONTRIBUTING.md CHANGELOG.md LICENSE NOTICE README.md Rakefile)
+  # s.files = %w(CONTRIBUTING.md CHANGELOG.md LICENSE NOTICE README.md Rakefile)
   s.extensions = ['ext/libmongocrypt/extconf.rb']
   s.files = Dir.glob('lib/**/*') + Dir.glob('ext/**/*') - [File.join('ext/libmongocrypt/libmongocrypt/build')]
 
