@@ -46,6 +46,7 @@
     #   • deb9 - Debian 9.2
     #   • deb10 - Debian 10.0
     #   • deb11 - Debian 11.0
+    #   • deb12 - Debian 12.0
     #   • sles15 - OpenSUSE Leap 15.0
     #   • alpine - Alpine Linux 3.18
     #
@@ -179,6 +180,11 @@ ENV_DEBIAN:
     COMMAND
     ARG --required version
     FROM +init --base=docker.io/library/debian:$version
+    IF [ $version = "9.2" ]
+        # Update source list for archived Debian stretch packages.
+        # Refer: https://unix.stackexchange.com/a/743865/260858
+        RUN echo "deb http://archive.debian.org/debian stretch main" > /etc/apt/sources.list
+    END
     DO +DEBIAN_SETUP
 
 env.deb9:
@@ -196,13 +202,17 @@ env.deb11:
     # A Debian 11.0 environment
     DO +ENV_DEBIAN --version 11.0
 
+env.deb12:
+    # A Debian 12.0 environment
+    DO +ENV_DEBIAN --version 12.0
+
 env.sles15:
     # An OpenSUSE Leap 15.0 environment.
     FROM +init --base=docker.io/opensuse/leap:15.0
     DO +SLES_SETUP
 
 env.alpine:
-    FROM +init --base=docker.io/library/alpine:3.17
+    FROM +init --base=docker.io/library/alpine:3.18
     DO +ALPINE_SETUP
 
 # Utility: Warm-up obtaining CMake and Ninja for the build. This is usually
@@ -249,7 +259,7 @@ BUILD_EXAMPLE_STATE_MACHINE:
     RUN cd /s && /s/example-state-machine
 
 rpm-build:
-    FROM +init --base fedora:rawhide
+    FROM +init --base fedora:38
     GIT CLONE https://src.fedoraproject.org/rpms/libmongocrypt.git /R
     # Install the packages listed by "BuildRequires" and rpm-build:
     RUN __install $(awk '/^BuildRequires:/ { print $2 }' /R/libmongocrypt.spec) \
@@ -265,7 +275,7 @@ rpm-build:
 
 rpm-install-runtime:
     # Install the runtime RPM
-    FROM +init --base fedora:rawhide
+    FROM +init --base fedora:38
     COPY +rpm-build/RPMS /tmp/libmongocrypt-rpm/
     RUN dnf makecache
     RUN __install $(find /tmp/libmongocrypt-rpm/ -name 'libmongocrypt-1.*.rpm')
@@ -372,3 +382,141 @@ build:
         CACHE /s/libmongocrypt/cmake-build
     END
     RUN env USE_NINJA=1 bash libmongocrypt/.evergreen/build_all.sh
+    SAVE ARTIFACT /s/install /libmongocrypt-install
+
+# `create-deb-packages-and-repos` creates the .deb packages and repo directories intended for the PPA on debian-like distros. Options:
+#   • --env=[...]
+#     · Set the environment for the build. Only debian-like environments are supported.
+#   • --packager_distro=[...] is passed to `create-packages-and-repos.sh`
+#   • --packager_arch=[...] is passed to `create-packages-and-repos.sh`
+create-deb-packages-and-repos:
+    ARG env
+    FROM +env.$env
+    DO +CACHE_WARMUP
+    DO +COPY_SOURCE
+    WORKDIR /s
+    RUN __install dh-make dpkg-dev apt-utils
+    ARG packager_distro
+    ARG packager_arch
+    RUN env \
+        WORKDIR=/s \
+        PYTHON=python3 \
+        HAS_PACKAGES=true \
+        PACKAGER_DISTRO=$packager_distro \
+        PACKAGER_ARCH=$packager_arch \
+        bash libmongocrypt/.evergreen/create-packages-and-repos.sh
+    SAVE ARTIFACT libmongocrypt/repo AS LOCAL repo
+
+# `test-deb-packages-from-ppa` tests Debian and Ubuntu packages installed on the PPA.
+#   • --env=[...] (default "deb11")
+#     · Set the environment for the build. Only debian-like environments are supported.
+#   • --distro=[...] (default "debian bullseye")
+#     · Has the form: "(debian|ubuntu) (name)". Must match distro set for `--env`.
+#   • --version=[...] (default "development"). The libmongocrypt package version.
+#     · May refer to a release branch (e.g. "1.8"). Release branch packages are updated on a tagged release.
+#     · "development" packages are updated by the `publish-packages` tasks every commit.
+test-deb-packages-from-ppa:
+    ARG env="deb11"
+    ARG distro="debian bullseye"
+    ARG version="development"
+    FROM +env.$env
+    WORKDIR /s
+    RUN __install apt-transport-https
+    # Install libmongocrypt following install steps described in README.md:
+    RUN curl -s --location https://pgp.mongodb.com/libmongocrypt.asc | gpg --dearmor >/etc/apt/trusted.gpg.d/libmongocrypt.gpg
+    RUN echo "deb https://libmongocrypt.s3.amazonaws.com/apt/$distro/libmongocrypt/$version main" | tee /etc/apt/sources.list.d/libmongocrypt.list
+    # Test using libmongocrypt:
+    RUN __install libmongocrypt-dev gcc
+    RUN echo "
+        #include <stdio.h>
+        #include <mongocrypt/mongocrypt.h>
+        int main(void) {
+            const char *ver = mongocrypt_version(NULL);
+            printf (\"Using libmongocrypt %s\", ver);
+        }" > test.c
+    RUN gcc -o test.out test.c $(pkg-config --libs --cflags libmongocrypt)
+    RUN ./test.out
+
+# `sign` uses Garasign to sign a file with the libmongocrypt key.
+# Requires prior authentication with Artifactory.
+# See: https://docs.devprod.prod.corp.mongodb.com/release-tools-container-images/garasign/garasign_signing/.
+sign:
+    ARG --required file_to_sign
+    ARG --required output_file
+    FROM artifactory.corp.mongodb.com/release-tools-container-registry-local/garasign-gpg
+    WORKDIR /s
+    COPY ${file_to_sign} /s/file
+    RUN --secret garasign_username --secret garasign_password \
+        GRS_CONFIG_USER1_USERNAME=${garasign_username} \
+        GRS_CONFIG_USER1_PASSWORD=${garasign_password} \
+        /bin/bash -c "gpgloader && gpg --yes -v --armor -o /s/file.asc --detach-sign /s/file"
+    # Verify the signature
+    RUN touch /keyring
+    RUN curl -sS https://pgp.mongodb.com/libmongocrypt.pub | gpg -q --no-default-keyring --keyring "/keyring" --import -
+    RUN gpgv --keyring "/keyring" "/s/file.asc" "/s/file"
+    SAVE ARTIFACT /s/file.asc AS LOCAL ${output_file}
+
+# silkbomb:
+#   An environment with the `silkbomb` command.
+#
+# See https://docs.devprod.prod.corp.mongodb.com/mms/python/src/sbom/silkbomb/ for documentation of silkbomb.
+silkbomb:
+    FROM artifactory.corp.mongodb.com/release-tools-container-registry-public-local/silkbomb:1.0
+    # Alias the silkbom executable to a simpler name:
+    RUN ln -s /python/src/sbom/silkbomb/bin /usr/local/bin/silkbomb
+
+# sbom-generate:
+#   Generate/update the etc/cyclonedx.sbom.json file from the etc/purls.txt file.
+#
+# This target will update the existing etc/cyclonedx.sbom.json file in-place based
+# on the content of etc/purls.txt.
+#
+sbom-generate:
+    FROM +silkbomb
+    # Copy in the relevant files:
+    WORKDIR /s
+    COPY etc/purls.txt etc/cyclonedx.sbom.json /s/
+    # Update the SBOM file:
+    RUN silkbomb update \
+        --purls purls.txt \
+        --sbom-in cyclonedx.sbom.json \
+        --sbom-out cyclonedx.sbom.json
+    # Save the result back to the host:
+    SAVE ARTIFACT /s/cyclonedx.sbom.json AS LOCAL etc/cyclonedx.sbom.json
+
+# sbom-download:
+#   Download the Augmented SBOM file from Silk.
+#
+# See https://wiki.corp.mongodb.com/display/DRIVERS/Using+AWS+Secrets+Manager+to+Store+Testing+Secrets for instructions to get secrets from AWS Secrets Manager. Secrets are available under `drivers/libmongocrypt`.
+#
+sbom-download:
+    ARG --required out
+    ARG --required branch
+    FROM +silkbomb
+    WORKDIR /s
+    # Download the Augmented SBOM file:
+    RUN --no-cache --secret silk_client_id --secret silk_client_secret \
+        SILK_CLIENT_ID=${silk_client_id} \
+        SILK_CLIENT_SECRET=${silk_client_secret} \
+        silkbomb download \
+        --sbom-out cyclonedx.augmented.sbom.json \
+        --silk-asset-group libmongocrypt-${branch}
+    # Save the result back to the host:
+    SAVE ARTIFACT /s/cyclonedx.augmented.sbom.json AS LOCAL ${out}
+    RUN echo "Augmented SBOM saved to ${out}"
+
+# silk-create-asset-group:
+#   Create an asset group for Silk.
+#
+# See https://wiki.corp.mongodb.com/display/DRIVERS/Using+AWS+Secrets+Manager+to+Store+Testing+Secrets for instructions to get secrets from AWS Secrets Manager. Secrets are available under `drivers/libmongocrypt`.
+#
+silk-create-asset-group:
+    ARG --required branch
+    FROM +env.alpine
+    RUN __install curl jq
+    COPY etc/silk-create-asset-group.sh /s/silk-create-asset-group.sh
+    RUN --no-cache --secret silk_client_id --secret silk_client_secret \
+        silk_client_id=${silk_client_id} \
+        silk_client_secret=${silk_client_secret} \
+        branch=${branch} \
+            /s/silk-create-asset-group.sh

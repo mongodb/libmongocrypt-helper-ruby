@@ -1,10 +1,17 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
 
 . "$(dirname "${BASH_SOURCE[0]}")/setup-env.sh"
 
 set -euo pipefail
 
-: "${EARTHLY_VERSION:=0.6.30}"
+: "${EARTHLY_VERSION:=0.7.8}"
+
+# Bring in the debian/ directory from the debian/unstable branch
+pushd "$(dirname "${BASH_SOURCE[0]}")/../"
+    (git remote | grep -q upstream) || git remote add upstream https://github.com/mongodb/libmongocrypt
+    git fetch upstream
+    git checkout $(git rev-parse upstream/debian/unstable) -- debian
+popd
 
 # Calc the arch of the executable we want
 arch="$(uname -m)"
@@ -26,6 +33,10 @@ cache_dir="$USER_CACHES_DIR/earthly-sh/$EARTHLY_VERSION"
 mkdir -p "$cache_dir"
 
 exe_filename="earthly-$OS_NAME-$arch$EXE_SUFFIX"
+if [[ "$OS_NAME" == "macos" ]]; then
+    # Earthly downloads use `darwin`.
+    exe_filename="earthly-darwin-$arch$EXE_SUFFIX"
+fi
 exe_path="$cache_dir/$exe_filename"
 
 # Download if it isn't already present

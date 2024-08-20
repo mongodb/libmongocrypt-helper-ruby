@@ -73,6 +73,31 @@ public class CAPI {
      * mongocrypt_binary_destroy.
      */
     public static class mongocrypt_binary_t extends PointerType {
+        // The `mongocrypt_binary_t` struct layout is part of libmongocrypt's ABI:
+        // typedef struct _mongocrypt_binary_t {
+        //     void *data;
+        //     uint32_t len;
+        // } mongocrypt_binary_t;
+        // To improve performance, fields are read directly using `getPointer` and `getInt`.
+        // This results in observed performance improvements over using of `mongocrypt_binary_data` and `mongocrypt_binary_len`. Refer: MONGOCRYPT-589.
+        public mongocrypt_binary_t() {
+            super();
+        }
+        public Pointer data() {
+            return this.getPointer().getPointer(0);
+        }
+        public int len() {
+            int len = this.getPointer().getInt(Native.POINTER_SIZE);
+            // mongocrypt_binary_t represents length as an unsigned `uint32_t`.
+            // Representing `uint32_t` values greater than INT32_MAX is represented as a negative `int`.
+            // Throw an exception. mongocrypt_binary_t is not expected to use lengths greater than INT32_MAX.
+            if (len < 0) {
+                throw new AssertionError(
+                        String.format("Expected mongocrypt_binary_t length to be non-negative, got: %d", len));
+            }
+            return len;
+
+        }
     }
 
     /**
@@ -558,9 +583,8 @@ public class CAPI {
     mongocrypt_ctx_setopt_query_type (mongocrypt_ctx_t ctx, cstring query_type, int len);
 
     /**
-     * Set options for explicit encryption with the "rangePreview" algorithm.
-     * NOTE: The RangePreview algorithm is experimental only. It is not intended for
-     * public use.
+     * Set options for explicit encryption with the "range" algorithm.
+     * NOTE: "range" is currently unstable API and subject to backwards breaking changes.
      *
      * opts is a BSON document of the form:
      * {
@@ -568,6 +592,7 @@ public class CAPI {
      *    "max": Optional&#60;BSON value&#62;,
      *    "sparsity": Int64,
      *    "precision": Optional&#60;Int32&#62;
+     *    "trimFactor": Optional&#60;Int32&#62;
      * }
      *
      * @param ctx The @ref mongocrypt_ctx_t object.
@@ -598,6 +623,17 @@ public class CAPI {
     public static native boolean
     mongocrypt_status(mongocrypt_t crypt, mongocrypt_status_t status);
 
+    /**
+     * Returns true if libmongocrypt was built with native crypto support.
+     *
+     * <p>
+     * If libmongocrypt was not built with native crypto support, setting crypto hooks is required.
+     * </p>
+     *
+     * @return true if libmongocrypt was built with native crypto support
+     */
+    public static native boolean
+    mongocrypt_is_crypto_available();
 
     /**
      * Destroy the @ref mongocrypt_t object.
@@ -850,9 +886,8 @@ public class CAPI {
     /**
      * Explicit helper method to encrypt a Match Expression or Aggregate Expression.
      * Contexts created for explicit encryption will not go through mongocryptd.
-     * Requires query_type to be "rangePreview".
-     * NOTE: The RangePreview algorithm is experimental only. It is not intended for
-     * public use.
+     * Requires query_type to be "range".
+     * NOTE: "range" is currently unstable API and subject to backwards breaking changes.
      *
      * This method expects the passed-in BSON to be of the form:
      * { "v" : FLE2RangeFindDriverSpec }

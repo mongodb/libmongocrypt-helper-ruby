@@ -7,6 +7,10 @@ elseif (DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
    message (WARNING "The CMAKE_MSVC_RUNTIME_LIBRARY variable is set, but CMake is too old to understand it")
 endif ()
 
+if (POLICY CMP0135)
+   cmake_policy (SET CMP0135 NEW)
+endif ()
+
 project (mongocrypt C)
 
 # Used for the csfle-markup util:
@@ -20,7 +24,7 @@ option (ENABLE_PIC
    ON
 )
 option (ENABLE_BUILD_FOR_PPA "Maintainer-only option for preparing PPA build" OFF)
-option (ENABLE_ONLINE_TESTS "Enable online tests and the csfle utility" ON)
+option (ENABLE_ONLINE_TESTS "Enable online tests and the csfle utility. Requires libmongoc." ON)
 
 if (ENABLE_WINDOWS_STATIC_RUNTIME)
    if (POLICY CMP0091)
@@ -69,6 +73,7 @@ if (ENABLE_MORE_WARNINGS_AS_ERRORS)
       msvc:/W3 msvc:/WX msvc:/wd4996 msvc:/wd4359
       gnu-like:-Wall gnu-like:-Werror
       gnu-like:-Wswitch-enum gnu-like:-Wswitch-default
+      gnu-like:-Wsign-compare
       )
    add_link_options (
       # Enable link-time warnings. VS 2015 sees LNK4099 spuriously, but it is a
@@ -420,6 +425,9 @@ if (BUILD_TESTING)
       INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/src"
       LINK_LIBRARIES _mongocrypt::libbson_for_static
       COMPILE_FEATURES cxx_std_11
+      # Define `__STDC_LIMIT_MACROS` in libbson to define integer macros (e.g. SIZE_MAX) when including in C++ code.
+      # C99 standard notes: "C++ implementations should define these macros only when __STDC_LIMIT_MACROS is defined before <stdint.h> is included."
+      COMPILE_DEFINITIONS __STDC_LIMIT_MACROS
       PREFIX ""
       )
 
@@ -473,6 +481,7 @@ set (TEST_MONGOCRYPT_SOURCES
    test/test-mongocrypt-cache.c
    test/test-mongocrypt-cache-oauth.c
    test/test-mongocrypt-ciphertext.c
+   test/test-mongocrypt-cleanup.c
    test/test-mongocrypt-compact.c
    test/test-mongocrypt-crypto.c
    test/test-mongocrypt-crypto-hooks.c
@@ -494,10 +503,12 @@ set (TEST_MONGOCRYPT_SOURCES
    test/test-mongocrypt-local-kms.c
    test/test-mongocrypt-log.c
    test/test-mongocrypt-marking.c
+   test/test-mongocrypt-opts.c
    test/test-mongocrypt-status.c
    test/test-mongocrypt-traverse-util.c
    test/test-mongocrypt-util.c
    test/test-mongocrypt.c
+   test/test-named-kms-providers.c
    )
 
 # Define test-mongocrypt

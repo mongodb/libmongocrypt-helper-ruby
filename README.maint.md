@@ -13,8 +13,9 @@ derived from `libmongocrypt` version as described below.
 <https://github.com/mongodb/libmongocrypt/releases/>, and unpack it to
 `ext/libmongocrypt/libmongocrypt`.
 4. Update the SBOM lite file by running `etc/update-sbom.sh`
-5. Commit the changes including the new shared library.
-6. Create a PR for the changes. Once approved and merged, run the "Release" action on GitHub to create and publish the new gem.
+5. Test the changes by running `gem build *.gemspec && gem install libmongocrypt-helper-VERSION.gem`.
+6. Commit the changes.
+7. Create a PR for the changes. Once approved and merged, run the "Release" action on GitHub to create and publish the new gem.
 
 ## Helper Version Scheme
 

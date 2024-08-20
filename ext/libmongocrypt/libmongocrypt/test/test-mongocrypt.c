@@ -24,6 +24,7 @@
 #include "mongocrypt-marking-private.h"
 #include "mongocrypt.h"
 #include "test-mongocrypt.h"
+#include <kms_message/kms_b64.h> // kms_message_b64_pton
 
 #ifdef MONGOCRYPT_ENABLE_CRYPTO_COMMON_CRYPTO
 #include <sys/sysctl.h>
@@ -268,7 +269,7 @@ void _mongocrypt_tester_satisfy_kms(_mongocrypt_tester_t *tester, mongocrypt_kms
 
     BSON_ASSERT(mongocrypt_kms_ctx_endpoint(kms, &endpoint));
     BSON_ASSERT(endpoint == strstr(endpoint, "kms.") && strstr(endpoint, ".amazonaws.com"));
-    mongocrypt_kms_ctx_feed(kms, TEST_FILE("./test/example/kms-decrypt-reply.txt"));
+    mongocrypt_kms_ctx_feed(kms, TEST_FILE("./test/data/kms-aws/decrypt-response.txt"));
     BSON_ASSERT(0 == mongocrypt_kms_ctx_bytes_needed(kms));
 }
 
@@ -287,6 +288,7 @@ void _mongocrypt_tester_run_ctx_to(_mongocrypt_tester_t *tester,
     state = mongocrypt_ctx_state(ctx);
     while (state != stop_state) {
         switch (state) {
+        case MONGOCRYPT_CTX_NEED_MONGO_COLLINFO_WITH_DB:
         case MONGOCRYPT_CTX_NEED_MONGO_COLLINFO:
             if (tester->paths.collection_info) {
                 bin = TEST_FILE(tester->paths.collection_info);
@@ -493,6 +495,11 @@ mongocrypt_t *_mongocrypt_tester_mongocrypt(tester_mongocrypt_flags flags) {
     if (flags & TESTER_MONGOCRYPT_WITH_CRYPT_SHARED_LIB) {
         mongocrypt_setopt_append_crypt_shared_lib_search_path(crypt, "$ORIGIN");
     }
+    if (flags & TESTER_MONGOCRYPT_WITH_RANGE_V2) {
+        ASSERT(mongocrypt_setopt_use_range_v2(crypt));
+    } else {
+        crypt->opts.use_range_v2 = false;
+    }
     ASSERT_OK(mongocrypt_init(crypt), crypt);
     if (flags & TESTER_MONGOCRYPT_WITH_CRYPT_SHARED_LIB) {
         if (mongocrypt_crypt_shared_lib_version(crypt) == 0) {
@@ -504,6 +511,15 @@ mongocrypt_t *_mongocrypt_tester_mongocrypt(tester_mongocrypt_flags flags) {
     return crypt;
 }
 
+bool _mongocrypt_init_for_test(mongocrypt_t *crypt) {
+    BSON_ASSERT_PARAM(crypt);
+    // Even if the ENABLE_USE_RANGE_V2 compile flag is on, we should have range V2 off by default for testing, as many
+    // existing tests are based around range V2 being disabled. To use range V2, use the TESTER_MONGOCRYPT_WITH_RANGE_V2
+    // flag with the above function.
+    crypt->opts.use_range_v2 = false;
+    return mongocrypt_init(crypt);
+}
+
 static void _test_mongocrypt_bad_init(_mongocrypt_tester_t *tester) {
     mongocrypt_t *crypt;
     mongocrypt_binary_t *local_key;
@@ -511,7 +527,7 @@ static void _test_mongocrypt_bad_init(_mongocrypt_tester_t *tester) {
 
     /* Omitting a KMS provider must fail. */
     crypt = mongocrypt_new();
-    ASSERT_FAILS(mongocrypt_init(crypt), crypt, "no kms provider set");
+    ASSERT_FAILS(_mongocrypt_init_for_test(crypt), crypt, "no kms provider set");
     mongocrypt_destroy(crypt);
 
     /* Bad KMS provider options must fail. */
@@ -549,13 +565,13 @@ static void _test_mongocrypt_bad_init(_mongocrypt_tester_t *tester) {
     /* Reinitialization must fail. */
     crypt = mongocrypt_new();
     ASSERT_OK(mongocrypt_setopt_kms_provider_aws(crypt, "example", -1, "example", -1), crypt);
-    ASSERT_OK(mongocrypt_init(crypt), crypt);
-    ASSERT_FAILS(mongocrypt_init(crypt), crypt, "already initialized");
+    ASSERT_OK(_mongocrypt_init_for_test(crypt), crypt);
+    ASSERT_FAILS(_mongocrypt_init_for_test(crypt), crypt, "already initialized");
     mongocrypt_destroy(crypt);
     /* Setting options after initialization must fail. */
     crypt = mongocrypt_new();
     ASSERT_OK(mongocrypt_setopt_kms_provider_aws(crypt, "example", -1, "example", -1), crypt);
-    ASSERT_OK(mongocrypt_init(crypt), crypt);
+    ASSERT_OK(_mongocrypt_init_for_test(crypt), crypt);
     ASSERT_FAILS(mongocrypt_setopt_kms_provider_aws(crypt, "example", -1, "example", -1),
                  crypt,
                  "options cannot be set after initialization");
@@ -599,7 +615,7 @@ static void _test_setopt_encrypted_field_config_map(_mongocrypt_tester_t *tester
     ASSERT_OK(
         mongocrypt_setopt_encrypted_field_config_map(crypt, TEST_FILE("./test/data/encrypted-field-config-map.json")),
         crypt);
-    ASSERT_OK(mongocrypt_init(crypt), crypt);
+    ASSERT_OK(_mongocrypt_init_for_test(crypt), crypt);
     mongocrypt_destroy(crypt);
 
     /* Test double setting. */
@@ -640,7 +656,7 @@ static void _test_setopt_encrypted_field_config_map(_mongocrypt_tester_t *tester
     ASSERT_OK(
         mongocrypt_setopt_kms_providers(crypt, TEST_BSON("{'aws': {'accessKeyId': 'foo', 'secretAccessKey': 'bar'}}")),
         crypt);
-    ASSERT_OK(mongocrypt_init(crypt), crypt);
+    ASSERT_OK(_mongocrypt_init_for_test(crypt), crypt);
     mongocrypt_destroy(crypt);
 
     /* Test that it is an error to set both the encrypted field config map and
@@ -652,7 +668,7 @@ static void _test_setopt_encrypted_field_config_map(_mongocrypt_tester_t *tester
     ASSERT_OK(
         mongocrypt_setopt_kms_providers(crypt, TEST_BSON("{'aws': {'accessKeyId': 'foo', 'secretAccessKey': 'bar'}}")),
         crypt);
-    ASSERT_FAILS(mongocrypt_init(crypt),
+    ASSERT_FAILS(_mongocrypt_init_for_test(crypt),
                  crypt,
                  "db.coll1 is present in both schema_map and encrypted_field_config_map");
     mongocrypt_destroy(crypt);
@@ -665,7 +681,7 @@ static void _test_setopt_invalid_kms_providers(_mongocrypt_tester_t *tester) {
 
     crypt = mongocrypt_new();
     ASSERT_OK(mongocrypt_setopt_kms_provider_aws(crypt, "", 0, "", 0), crypt);
-    ASSERT_OK(mongocrypt_init(crypt), crypt);
+    ASSERT_OK(_mongocrypt_init_for_test(crypt), crypt);
 
     ctx = mongocrypt_ctx_new(crypt);
     ASSERT_OK(mongocrypt_ctx_setopt_masterkey_aws(ctx, "region", -1, "cmk", 3), ctx);
@@ -683,7 +699,7 @@ static void _test_setopt_invalid_kms_providers(_mongocrypt_tester_t *tester) {
     crypt = mongocrypt_new();
     mongocrypt_setopt_use_need_kms_credentials_state(crypt);
     ASSERT_OK(mongocrypt_setopt_kms_providers(crypt, TEST_BSON("{}")), crypt);
-    ASSERT_FAILS(mongocrypt_init(crypt), crypt, "no kms provider set");
+    ASSERT_FAILS(_mongocrypt_init_for_test(crypt), crypt, "no kms provider set");
     mongocrypt_destroy(crypt);
 }
 
@@ -725,7 +741,7 @@ static void _test_setopt_kms_providers(_mongocrypt_tester_t *tester) {
          "'privateKey': {'$binary': {'base64': 'AAAA', 'subType': '00'}} }}"},
         /* endpoint is not required. */
         {"{'gcp': {'email': 'test', 'privateKey': 'AAAA' }}"},
-        {"{'gcp': {'privateKey': 'AAAA'}}", "expected UTF-8 gcp.email"},
+        {"{'gcp': {'privateKey': 'AAAA'}}", "Failed to parse KMS provider `gcp`: expected UTF-8 email"},
         {"{'gcp': {'email': 'test', 'privateKey': 'invalid base64' }}", "unable to parse base64"},
         {"{'gcp': {'endpoint': 'example', 'email': 'test', 'privateKey': "
          "'AAAA'}}",
@@ -776,13 +792,44 @@ static void _test_setopt_kms_providers(_mongocrypt_tester_t *tester) {
         if (!test->errmsg) {
             ASSERT_OK(mongocrypt_setopt_kms_providers(crypt, TEST_BSON(test->value)), crypt);
             if (!test->errmsg_init) {
-                ASSERT_OK(mongocrypt_init(crypt), crypt);
+                ASSERT_OK(_mongocrypt_init_for_test(crypt), crypt);
             } else {
-                ASSERT_FAILS(mongocrypt_init(crypt), crypt, test->errmsg_init);
+                ASSERT_FAILS(_mongocrypt_init_for_test(crypt), crypt, test->errmsg_init);
             }
         } else {
             ASSERT_FAILS(mongocrypt_setopt_kms_providers(crypt, TEST_BSON(test->value)), crypt, test->errmsg);
         }
+        mongocrypt_destroy(crypt);
+    }
+
+    // Errors if followed by call to `mongocrypt_setopt_kms_providers` configuring "local".
+    // This is a regression test for: MONGOCRYPT-610
+    {
+        _mongocrypt_buffer_t local_kek_buf;
+        // Create buffer for local KEK to pass data.
+        {
+            _mongocrypt_buffer_init(&local_kek_buf);
+            _mongocrypt_buffer_resize(&local_kek_buf, MONGOCRYPT_KEY_LEN);
+            int result_len =
+                kms_message_b64_pton(EXAMPLE_LOCAL_MATERIAL, local_kek_buf.data, (size_t)local_kek_buf.len);
+            ASSERT_CMPINT(result_len, ==, MONGOCRYPT_KEY_LEN);
+        }
+
+        mongocrypt_binary_t *more = TEST_BSON("{'local' : {'key' : '%s'}}", EXAMPLE_LOCAL_MATERIAL);
+        mongocrypt_t *crypt = mongocrypt_new();
+        ASSERT_OK(mongocrypt_setopt_kms_provider_local(crypt, _mongocrypt_buffer_as_binary(&local_kek_buf)), crypt);
+        ASSERT_FAILS(mongocrypt_setopt_kms_providers(crypt, more), crypt, "already set");
+        mongocrypt_destroy(crypt);
+        _mongocrypt_buffer_cleanup(&local_kek_buf);
+    }
+
+    // Errors if followed by call to `mongocrypt_setopt_kms_providers` configuring "aws".
+    // This is a regression test for: MONGOCRYPT-610
+    {
+        mongocrypt_binary_t *more = TEST_BSON("{'aws' : {'accessKeyId' : 'foo', 'secretAccessKey' : 'bar'}}");
+        mongocrypt_t *crypt = mongocrypt_new();
+        ASSERT_OK(mongocrypt_setopt_kms_provider_aws(crypt, "foo", -1, "bar", -1), crypt);
+        ASSERT_FAILS(mongocrypt_setopt_kms_providers(crypt, more), crypt, "already set");
         mongocrypt_destroy(crypt);
     }
 }
@@ -837,6 +884,7 @@ int main(int argc, char **argv) {
     _mongocrypt_tester_install_fle2_payloads(&tester);
     _mongocrypt_tester_install_fle2_iev_v2_payloads(&tester);
     _mongocrypt_tester_install_efc(&tester);
+    _mongocrypt_tester_install_cleanup(&tester);
     _mongocrypt_tester_install_compact(&tester);
     _mongocrypt_tester_install_fle2_payload_uev(&tester);
     _mongocrypt_tester_install_fle2_payload_uev_v2(&tester);
@@ -852,6 +900,8 @@ int main(int argc, char **argv) {
     _mongocrypt_tester_install_gcp_auth(&tester);
     _mongocrypt_tester_install_mc_reader(&tester);
     _mongocrypt_tester_install_mc_writer(&tester);
+    _mongocrypt_tester_install_opts(&tester);
+    _mongocrypt_tester_install_named_kms_providers(&tester);
 
 #ifdef MONGOCRYPT_ENABLE_CRYPTO_COMMON_CRYPTO
     char osversion[32];
@@ -937,8 +987,10 @@ void _test_ctx_wrap_and_feed_key(mongocrypt_ctx_t *ctx,
                                  const _mongocrypt_buffer_t *id,
                                  _mongocrypt_buffer_t *key,
                                  mongocrypt_status_t *status) {
+    mc_kms_creds_t kc;
+    ASSERT(_mongocrypt_opts_kms_providers_lookup(_mongocrypt_ctx_kms_providers(ctx), "local", &kc));
     // Wrap key using local provider.
-    _mongocrypt_buffer_t kek = _mongocrypt_ctx_kms_providers(ctx)->local.key;
+    _mongocrypt_buffer_t kek = kc.value.local.key;
     _mongocrypt_buffer_t encrypted_key;
     _mongocrypt_buffer_init(&encrypted_key);
     ASSERT_OK_STATUS(_mongocrypt_wrap_key(ctx->crypt->crypto, &kek, key, &encrypted_key, status), status);

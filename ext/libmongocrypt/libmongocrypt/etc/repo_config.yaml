@@ -106,6 +106,42 @@ repos:
       - yum/redhat/8/libmongocrypt
       - yum/redhat/8Server/libmongocrypt
 
+  - name: rhel81
+    type: rpm
+    edition: org
+    bucket: libmongocrypt
+    region: us-east-1
+    repos:
+      - yum/redhat/8/libmongocrypt
+      - yum/redhat/8Server/libmongocrypt
+
+  - name: rhel82
+    type: rpm
+    edition: org
+    bucket: libmongocrypt
+    region: us-east-1
+    repos:
+      - yum/redhat/8/libmongocrypt
+      - yum/redhat/8Server/libmongocrypt
+
+  - name: rhel83
+    type: rpm
+    edition: org
+    bucket: libmongocrypt
+    region: us-east-1
+    repos:
+      - yum/redhat/8/libmongocrypt
+      - yum/redhat/8Server/libmongocrypt
+
+  - name: rhel91
+    type: rpm
+    edition: org
+    bucket: libmongocrypt
+    region: us-east-1
+    repos:
+      - yum/redhat/9/libmongocrypt
+      - yum/redhat/9Server/libmongocrypt
+
   - name: amazon
     type: rpm
     edition: org
@@ -121,6 +157,14 @@ repos:
     region: us-east-1
     repos:
       - yum/amazon/2/libmongocrypt
+
+  - name: amazon2023
+    type: rpm
+    edition: org
+    bucket: libmongocrypt
+    region: us-east-1
+    repos:
+      - yum/amazon/2023/libmongocrypt
 
   - name: suse12
     type: rpm
@@ -186,6 +230,18 @@ repos:
       - amd64
     repos:
       - apt/debian/dists/bullseye/libmongocrypt
+
+  - name: debian12
+    type: deb
+    code_name: "bookworm"
+    bucket: libmongocrypt
+    region: us-east-1
+    edition: org
+    component: main
+    architectures:
+      - amd64
+    repos:
+      - apt/debian/dists/bookworm/libmongocrypt
 
   - name: ubuntu1404
     type: deb

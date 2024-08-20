@@ -18,7 +18,7 @@ The binding uses the native language\'s foreign function interface to C.
 For example, Java can accomplish this with
 [JNA](https://github.com/java-native-access/jna), CPython with
 [extensions](https://docs.python.org/3/extending/extending.html),
-NodeJS with [add-ons](https://nodejs.org/api/addons.html), etc.
+Node.js with [add-ons](https://nodejs.org/api/addons.html), etc.
 
 The libmongocrypt library files (.so/.dll) are pre-built on its
 [Evergreen project](https://evergreen.mongodb.com/waterfall/libmongocrypt). Click
@@ -136,6 +136,23 @@ A result from a listCollections cursor.
 **Applies to...**
 
 auto encrypt
+
+#### State: `MONGOCRYPT_CTX_NEED_MONGO_COLLINFO_WITH_DB` ####
+
+**libmongocrypt needs**...
+
+Results from a listCollections cursor from a specified database.
+
+**Driver needs to...**
+
+1.  Run listCollections on the encrypted MongoClient with the filter
+    provided by `mongocrypt_ctx_mongo_op` on the database provided by `mongocrypt_ctx_mongo_db`.
+2.  Return the first result (if any) with `mongocrypt_ctx_mongo_feed` or proceed to the next step if nothing was returned.
+3.  Call `mongocrypt_ctx_mongo_done`
+
+**Applies to...**
+
+A context initialized with `mongocrypt_ctx_encrypt_init` for automatic encryption. This state is only entered when `mongocrypt_setopt_use_need_mongo_collinfo_with_db_state` is called to opt-in.
 
 #### State: `MONGOCRYPT_CTX_NEED_MONGO_MARKINGS` ####
 
