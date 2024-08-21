@@ -42,6 +42,8 @@ typedef enum tester_mongocrypt_flags {
     TESTER_MONGOCRYPT_WITH_CRYPT_SHARED_LIB = 1 << 0,
     /// Enable wire protocol version v1
     TESTER_MONGOCRYPT_WITH_CRYPT_V1 = 1 << 1,
+    /// Enable range V2
+    TESTER_MONGOCRYPT_WITH_RANGE_V2 = 1 << 2,
 } tester_mongocrypt_flags;
 
 /* Arbitrary max of 2048 instances of temporary test data. Increase as needed.
@@ -95,6 +97,9 @@ void _mongocrypt_tester_fill_buffer(_mongocrypt_buffer_t *buf, int n);
 
 /* Return a new initialized mongocrypt_t for testing. */
 mongocrypt_t *_mongocrypt_tester_mongocrypt(tester_mongocrypt_flags options);
+
+/* Initialize a new mongocrypt_t for use in testing. */
+bool _mongocrypt_init_for_test(mongocrypt_t *);
 
 typedef enum { CRYPTO_REQUIRED, CRYPTO_OPTIONAL, CRYPTO_PROHIBITED } _mongocrypt_tester_crypto_spec_t;
 
@@ -165,6 +170,8 @@ void _mongocrypt_tester_install_fle2_iev_v2_payloads(_mongocrypt_tester_t *teste
 
 void _mongocrypt_tester_install_efc(_mongocrypt_tester_t *tester);
 
+void _mongocrypt_tester_install_cleanup(_mongocrypt_tester_t *tester);
+
 void _mongocrypt_tester_install_compact(_mongocrypt_tester_t *tester);
 
 void _mongocrypt_tester_install_fle2_payload_uev(_mongocrypt_tester_t *tester);
@@ -194,6 +201,10 @@ void _mongocrypt_tester_install_mc_FLE2RangeFindDriverSpec(_mongocrypt_tester_t 
 void _mongocrypt_tester_install_mc_reader(_mongocrypt_tester_t *tester);
 
 void _mongocrypt_tester_install_mc_writer(_mongocrypt_tester_t *tester);
+
+void _mongocrypt_tester_install_opts(_mongocrypt_tester_t *tester);
+
+void _mongocrypt_tester_install_named_kms_providers(_mongocrypt_tester_t *tester);
 
 /* Conveniences for getting test data. */
 

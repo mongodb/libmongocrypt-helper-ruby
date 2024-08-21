@@ -1,4 +1,0 @@
-pymongo[aws]>=4
-cffi>=1.12.0,<2
-cryptography>=2
-requests_mock>=1.10

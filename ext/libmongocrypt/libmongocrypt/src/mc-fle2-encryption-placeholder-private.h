@@ -49,7 +49,9 @@ typedef struct {
     bson_iter_t indexMax;
     // precision determines the number of digits after the decimal point for
     // floating point values.
-    mc_optional_uint32_t precision;
+    mc_optional_int32_t precision;
+    // trimFactor determines how many root levels of the hypergraph to trim.
+    mc_optional_int32_t trimFactor;
 } mc_FLE2RangeFindSpecEdgesInfo_t;
 
 /** FLE2RangeFindSpec represents the range find specification that is encoded
@@ -74,7 +76,10 @@ typedef struct {
     mc_FLE2RangeOperator_t secondOperator;
 } mc_FLE2RangeFindSpec_t;
 
-bool mc_FLE2RangeFindSpec_parse(mc_FLE2RangeFindSpec_t *out, const bson_iter_t *in, mongocrypt_status_t *status);
+bool mc_FLE2RangeFindSpec_parse(mc_FLE2RangeFindSpec_t *out,
+                                const bson_iter_t *in,
+                                bool use_range_v2,
+                                mongocrypt_status_t *status);
 
 /** mc_FLE2RangeInsertSpec_t represents the range insert specification that is
  * encoded inside of a FLE2EncryptionPlaceholder. See
@@ -89,10 +94,15 @@ typedef struct {
     bson_iter_t max;
     // precision determines the number of digits after the decimal point for
     // floating point values.
-    mc_optional_uint32_t precision;
+    mc_optional_int32_t precision;
+    // trimFactor determines how many root levels of the hypergraph to trim.
+    mc_optional_int32_t trimFactor;
 } mc_FLE2RangeInsertSpec_t;
 
-bool mc_FLE2RangeInsertSpec_parse(mc_FLE2RangeInsertSpec_t *out, const bson_iter_t *in, mongocrypt_status_t *status);
+bool mc_FLE2RangeInsertSpec_parse(mc_FLE2RangeInsertSpec_t *out,
+                                  const bson_iter_t *in,
+                                  bool use_range_v2,
+                                  mongocrypt_status_t *status);
 
 /** FLE2EncryptionPlaceholder implements Encryption BinData (subtype 6)
  * sub-subtype 0, the intent-to-encrypt mapping. Contains a value to encrypt and
@@ -116,7 +126,7 @@ typedef struct {
     bson_iter_t v_iter;
     _mongocrypt_buffer_t index_key_id;
     _mongocrypt_buffer_t user_key_id;
-    int64_t maxContentionCounter;
+    int64_t maxContentionFactor;
     // sparsity is the Queryable Encryption range hypergraph sparsity factor
     int64_t sparsity;
 } mc_FLE2EncryptionPlaceholder_t;

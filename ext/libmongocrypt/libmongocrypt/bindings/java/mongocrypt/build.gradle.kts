@@ -37,25 +37,32 @@ plugins {
     id("biz.aQute.bnd.builder") version "6.2.0"
 }
 
-repositories {
-    mavenCentral()
-    google()
+allprojects {
+    repositories {
+        mavenCentral()
+        google()
+    }
 }
 
 group = "org.mongodb"
-version = "1.8.0-SNAPSHOT"
+version = "1.11.0-SNAPSHOT"
 description = "MongoDB client-side crypto support"
 
 java {
     sourceCompatibility = JavaVersion.VERSION_1_8
     targetCompatibility = JavaVersion.VERSION_1_8
+
+    registerFeature("loggingSupport") {
+        usingSourceSet(sourceSets["main"])
+    }
 }
+
 
 val bsonRangeVersion = "[3.10,5.0)"
 dependencies {
     api("org.mongodb:bson:$bsonRangeVersion")
     api("net.java.dev.jna:jna:5.11.0")
-    implementation("org.slf4j:slf4j-api:1.7.36")
+    "loggingSupportImplementation"("org.slf4j:slf4j-api:1.7.36")
 
     // Tests
     testImplementation(platform("org.junit:junit-bom:5.8.2"))
@@ -122,11 +129,17 @@ tasks.register<Download>("downloadJava") {
     overwrite(true)
 }
 
+// The `processResources` task (defined by the `java-library` plug-in) consumes files in the main source set.
+// Add a dependency on `unzipJava`. `unzipJava` adds libmongocrypt libraries to the main source set.
+tasks.processResources {
+    mustRunAfter(tasks.named("unzipJava"))
+}
+
 tasks.register<Copy>("unzipJava") {
     outputs.upToDateWhen { false }
     from(tarTree(resources.gzip("${jnaDownloadsDir}/libmongocrypt-java.tar.gz")))
     include(jnaMapping.keys.flatMap {
-        listOf("${it}/nocrypto/**/libmongocrypt.so", "${it}/nocrypto/**/libmongocrypt.dylib", "${it}/nocrypto/**/mongocrypt.dll" )
+        listOf("${it}/nocrypto/**/libmongocrypt.so", "${it}/lib/**/libmongocrypt.dylib", "${it}/bin/**/mongocrypt.dll" )
     })
     eachFile {
         path = "${jnaMapping[path.substringBefore("/")]}/${name}"
@@ -209,6 +222,8 @@ publishing {
         create<MavenPublication>("mavenJava") {
             artifactId = "mongodb-crypt"
             from(components["java"])
+            suppressPomMetadataWarningsFor("loggingSupportApiElements")
+            suppressPomMetadataWarningsFor("loggingSupportRuntimeElements")
 
             artifact(tasks["sourcesJar"])
             artifact(tasks["javadocJar"])

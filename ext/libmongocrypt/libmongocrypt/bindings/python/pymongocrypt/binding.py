@@ -15,25 +15,23 @@
 import os
 import os.path
 import sys
+from pathlib import Path
 
 import cffi
+from packaging.version import Version
 
-from pymongocrypt.compat import PY3
 from pymongocrypt.version import _MIN_LIBMONGOCRYPT_VERSION
 
-try:
-    from pkg_resources import parse_version as _parse_version
-except ImportError:
-    from distutils.version import LooseVersion as _LooseVersion
 
-    def _parse_version(version):
-        return _LooseVersion(version)
+def _parse_version(version):
+    return Version(version)
 
 
 ffi = cffi.FFI()
 
 # Generated with strip_header.py
-ffi.cdef("""/*
+ffi.cdef(
+    """/*
  * Copyright 2019-present MongoDB, Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -68,6 +66,16 @@ ffi.cdef("""/*
 const char *mongocrypt_version(uint32_t *len);
 
 /**
+ * Returns true if libmongocrypt was built with native crypto support.
+ *
+ * If libmongocrypt was not built with native crypto support, setting crypto
+ * hooks is required.
+ *
+ * @returns True if libmongocrypt was built with native crypto support.
+ */
+bool mongocrypt_is_crypto_available(void);
+
+/**
  * A non-owning view of a byte buffer.
  *
  * When constructing a mongocrypt_binary_t it is the responsibility of the
@@ -88,8 +96,14 @@ const char *mongocrypt_version(uint32_t *len);
  * mongocrypt_ctx_mongo_op guarantees that the viewed data of
  * mongocrypt_binary_t is valid until the parent ctx is destroyed with @ref
  * mongocrypt_ctx_destroy.
+ *
+ * The `mongocrypt_binary_t` struct definition is public.
+ * Consumers may rely on the struct layout.
  */
-typedef struct _mongocrypt_binary_t mongocrypt_binary_t;
+typedef struct _mongocrypt_binary_t {
+    void *data;
+    uint32_t len;
+} mongocrypt_binary_t;
 
 /**
  * Create a new non-owning view of a buffer (data + length).
@@ -454,6 +468,17 @@ void mongocrypt_setopt_set_crypt_shared_lib_path_override(mongocrypt_t *crypt, c
 void mongocrypt_setopt_use_need_kms_credentials_state(mongocrypt_t *crypt);
 
 /**
+ * @brief Opt-into handling the MONGOCRYPT_CTX_NEED_MONGO_COLLINFO_WITH_DB state.
+ *
+ * A context enters the MONGOCRYPT_CTX_NEED_MONGO_COLLINFO_WITH_DB state when
+ * processing a `bulkWrite` command. The target database of the `bulkWrite` may differ from the command database
+ * ("admin").
+ *
+ * @param[in] crypt The @ref mongocrypt_t object to update
+ */
+void mongocrypt_setopt_use_need_mongo_collinfo_with_db_state(mongocrypt_t *crypt);
+
+/**
  * Initialize new @ref mongocrypt_t object.
  *
  * Set options before using @ref mongocrypt_setopt_kms_provider_local, @ref
@@ -510,7 +535,7 @@ const char *mongocrypt_crypt_shared_lib_version_string(const mongocrypt_t *crypt
  * @brief Obtain a 64-bit constant encoding the version of the loaded
  * crypt_shared library, if available.
  *
- * @param[in] crypt The mongocrypt_t object after a successul call to
+ * @param[in] crypt The mongocrypt_t object after a successful call to
  * mongocrypt_init.
  *
  * @return A 64-bit encoded version number, with the version encoded as four
@@ -639,9 +664,8 @@ bool mongocrypt_ctx_setopt_algorithm(mongocrypt_ctx_t *ctx, const char *algorith
 /// String constant for setopt_algorithm "Random" encryption
 /// String constant for setopt_algorithm "Indexed" explicit encryption
 /// String constant for setopt_algorithm "Unindexed" explicit encryption
-/// String constant for setopt_algorithm "rangePreview" explicit encryption
-/// NOTE: The RangePreview algorithm is experimental only. It is not intended
-/// for public use.
+// DEPRECATED: support "RangePreview" has been removed in favor of "range".
+// NOTE: "Range" is currently unstable API and subject to backwards breaking changes.
 
 /**
  * Identify the AWS KMS master key to use for creating a data key.
@@ -823,9 +847,9 @@ bool mongocrypt_ctx_explicit_encrypt_init(mongocrypt_ctx_t *ctx, mongocrypt_bina
 /**
  * Explicit helper method to encrypt a Match Expression or Aggregate Expression.
  * Contexts created for explicit encryption will not go through mongocryptd.
- * Requires query_type to be "rangePreview".
- * NOTE: The RangePreview algorithm is experimental only. It is not intended for
- * public use.
+ * Requires query_type to be "range".
+ *
+ * NOTE: "range" is currently unstable API and subject to backwards breaking changes.
  *
  * This method expects the passed-in BSON to be of the form:
  * { "v" : FLE2RangeFindDriverSpec }
@@ -918,9 +942,10 @@ bool mongocrypt_ctx_rewrap_many_datakey_init(mongocrypt_ctx_t *ctx, mongocrypt_b
  */
 typedef enum {
     MONGOCRYPT_CTX_ERROR = 0,
-    MONGOCRYPT_CTX_NEED_MONGO_COLLINFO = 1, /* run on main MongoClient */
-    MONGOCRYPT_CTX_NEED_MONGO_MARKINGS = 2, /* run on mongocryptd. */
-    MONGOCRYPT_CTX_NEED_MONGO_KEYS = 3,     /* run on key vault */
+    MONGOCRYPT_CTX_NEED_MONGO_COLLINFO = 1,         /* run on main MongoClient */
+    MONGOCRYPT_CTX_NEED_MONGO_COLLINFO_WITH_DB = 8, /* run on main MongoClient */
+    MONGOCRYPT_CTX_NEED_MONGO_MARKINGS = 2,         /* run on mongocryptd. */
+    MONGOCRYPT_CTX_NEED_MONGO_KEYS = 3,             /* run on key vault */
     MONGOCRYPT_CTX_NEED_KMS = 4,
     MONGOCRYPT_CTX_NEED_KMS_CREDENTIALS = 7, /* fetch/renew KMS credentials */
     MONGOCRYPT_CTX_READY = 5,                /* ready for encryption/decryption */
@@ -940,7 +965,7 @@ mongocrypt_ctx_state_t mongocrypt_ctx_state(mongocrypt_ctx_t *ctx);
  * is in MONGOCRYPT_CTX_NEED_MONGO_* states.
  *
  * @p op_bson is a BSON document to be used for the operation.
- * - For MONGOCRYPT_CTX_NEED_MONGO_COLLINFO it is a listCollections filter.
+ * - For MONGOCRYPT_CTX_NEED_MONGO_COLLINFO(_WITH_DB) it is a listCollections filter.
  * - For MONGOCRYPT_CTX_NEED_MONGO_KEYS it is a find filter.
  * - For MONGOCRYPT_CTX_NEED_MONGO_MARKINGS it is a command to send to
  * mongocryptd.
@@ -958,12 +983,27 @@ mongocrypt_ctx_state_t mongocrypt_ctx_state(mongocrypt_ctx_t *ctx);
 bool mongocrypt_ctx_mongo_op(mongocrypt_ctx_t *ctx, mongocrypt_binary_t *op_bson);
 
 /**
+ * Get the database to run the mongo operation.
+ *
+ * Only applies when mongocrypt_ctx_t is in the state:
+ * MONGOCRYPT_CTX_NEED_MONGO_COLLINFO_WITH_DB.
+ *
+ * The lifetime of the returned string is tied to the lifetime of @p ctx. It is
+ * valid until @ref mongocrypt_ctx_destroy is called.
+ *
+ * @param[in] ctx The @ref mongocrypt_ctx_t object.
+ * @returns A string or NULL. If NULL, an error status is set. Retrieve it with
+ * @ref mongocrypt_ctx_status
+ */
+const char *mongocrypt_ctx_mongo_db(mongocrypt_ctx_t *ctx);
+
+/**
  * Feed a BSON reply or result when mongocrypt_ctx_t is in
  * MONGOCRYPT_CTX_NEED_MONGO_* states. This may be called multiple times
  * depending on the operation.
  *
  * reply is a BSON document result being fed back for this operation.
- * - For MONGOCRYPT_CTX_NEED_MONGO_COLLINFO it is a doc from a listCollections
+ * - For MONGOCRYPT_CTX_NEED_MONGO_COLLINFO(_WITH_DB) it is a doc from a listCollections
  * cursor. (Note, if listCollections returned no result, do not call this
  * function.)
  * - For MONGOCRYPT_CTX_NEED_MONGO_KEYS it is a doc from a find cursor.
@@ -1176,7 +1216,7 @@ void mongocrypt_ctx_destroy(mongocrypt_ctx_t *ctx);
  * @param[out] status An optional status to pass error messages. See @ref
  * mongocrypt_status_set.
  * @returns A boolean indicating success. If returning false, set @p status
- * with a message indiciating the error using @ref mongocrypt_status_set.
+ * with a message indicating the error using @ref mongocrypt_status_set.
  */
 typedef bool (*mongocrypt_crypto_fn)(void *ctx,
                                      mongocrypt_binary_t *key,
@@ -1201,7 +1241,7 @@ typedef bool (*mongocrypt_crypto_fn)(void *ctx,
  * @param[out] status An optional status to pass error messages. See @ref
  * mongocrypt_status_set.
  * @returns A boolean indicating success. If returning false, set @p status
- * with a message indiciating the error using @ref mongocrypt_status_set.
+ * with a message indicating the error using @ref mongocrypt_status_set.
  */
 typedef bool (*mongocrypt_hmac_fn)(void *ctx,
                                    mongocrypt_binary_t *key,
@@ -1220,7 +1260,7 @@ typedef bool (*mongocrypt_hmac_fn)(void *ctx,
  * @param[out] status An optional status to pass error messages. See @ref
  * mongocrypt_status_set.
  * @returns A boolean indicating success. If returning false, set @p status
- * with a message indiciating the error using @ref mongocrypt_status_set.
+ * with a message indicating the error using @ref mongocrypt_status_set.
  */
 typedef bool (*mongocrypt_hash_fn)(void *ctx,
                                    mongocrypt_binary_t *in,
@@ -1238,7 +1278,7 @@ typedef bool (*mongocrypt_hash_fn)(void *ctx,
  * @param[out] status An optional status to pass error messages. See @ref
  * mongocrypt_status_set.
  * @returns A boolean indicating success. If returning false, set @p status
- * with a message indiciating the error using @ref mongocrypt_status_set.
+ * with a message indicating the error using @ref mongocrypt_status_set.
  */
 typedef bool (*mongocrypt_random_fn)(void *ctx, mongocrypt_binary_t *out, uint32_t count, mongocrypt_status_t *status);
 
@@ -1259,8 +1299,7 @@ bool mongocrypt_setopt_crypto_hooks(mongocrypt_t *crypt,
  * operation.
  * @param[in] aes_256_ctr_decrypt The crypto callback function for decrypt
  * operation.
- * @param[in] ctx A context passed as an argument to the crypto callback
- * every invocation.
+ * @param[in] ctx Unused.
  * @pre @ref mongocrypt_init has not been called on @p crypt.
  * @returns A boolean indicating success. If false, an error status is set.
  * Retrieve it with @ref mongocrypt_status
@@ -1279,8 +1318,7 @@ bool mongocrypt_setopt_aes_256_ctr(mongocrypt_t *crypt,
  * @param[in] crypt The @ref mongocrypt_t object.
  * @param[in] aes_256_ecb_encrypt The crypto callback function for encrypt
  * operation.
- * @param[in] ctx A context passed as an argument to the crypto callback
- * every invocation.
+ * @param[in] ctx Unused.
  * @pre @ref mongocrypt_init has not been called on @p crypt.
  * @returns A boolean indicating success. If false, an error status is set.
  * Retrieve it with @ref mongocrypt_status
@@ -1319,6 +1357,17 @@ bool mongocrypt_setopt_crypto_hook_sign_rsaes_pkcs1_v1_5(mongocrypt_t *crypt,
  * @param[in] crypt The @ref mongocrypt_t object to update
  */
 void mongocrypt_setopt_bypass_query_analysis(mongocrypt_t *crypt);
+
+/**
+ * DEPRECATED: Use of `mongocrypt_setopt_use_range_v2` is deprecated. Range V2 is always enabled.
+ * NOTE: "range" is currently unstable API and subject to backwards breaking changes.
+ *
+ * @param[in] crypt The @ref mongocrypt_t object.
+ *
+ * @returns A boolean indicating success. If false, an error status is set.
+ * Retrieve it with @ref mongocrypt_status
+ */
+bool mongocrypt_setopt_use_range_v2(mongocrypt_t *crypt);
 
 /**
  * Set the contention factor used for explicit encryption.
@@ -1362,16 +1411,16 @@ bool mongocrypt_ctx_setopt_index_key_id(mongocrypt_ctx_t *ctx, mongocrypt_binary
 bool mongocrypt_ctx_setopt_query_type(mongocrypt_ctx_t *ctx, const char *query_type, int len);
 
 /**
- * Set options for explicit encryption with the "rangePreview" algorithm.
- * NOTE: The RangePreview algorithm is experimental only. It is not intended for
- * public use.
+ * Set options for explicit encryption with the "range" algorithm.
+ * NOTE: "range" is currently unstable API and subject to backwards breaking changes.
  *
  * @p opts is a BSON document of the form:
  * {
  *    "min": Optional<BSON value>,
  *    "max": Optional<BSON value>,
  *    "sparsity": Int64,
- *    "precision": Optional<Int32>
+ *    "precision": Optional<Int32>,
+ *    "trimFactor": Optional<Int32>
  * }
  *
  * @param[in] ctx The @ref mongocrypt_ctx_t object.
@@ -1383,18 +1432,15 @@ bool mongocrypt_ctx_setopt_query_type(mongocrypt_ctx_t *ctx, const char *query_t
 bool mongocrypt_ctx_setopt_algorithm_range(mongocrypt_ctx_t *ctx, mongocrypt_binary_t *opts);
 
 /// String constants for setopt_query_type
-// NOTE: The RangePreview algorithm is experimental only. It is not intended for
-// public use.
-""")
+// DEPRECATED: Support "rangePreview" has been removed in favor of "range".
+/// NOTE: "range" is currently unstable API and subject to backwards breaking changes.
+"""
+)
 
-if PY3:
-    def _to_string(cdata):
-        """Decode a cdata c-string to a Python str."""
-        return ffi.string(cdata).decode()
-else:
-    def _to_string(cdata):
-        """Decode a cdata c-string to a Python str."""
-        return ffi.string(cdata)
+
+def _to_string(cdata):
+    """Decode a cdata c-string to a Python str."""
+    return ffi.string(cdata).decode()
 
 
 def libmongocrypt_version():
@@ -1408,18 +1454,19 @@ def libmongocrypt_version():
 # export PYMONGOCRYPT_LIB='/path/to/libmongocrypt.so'
 # If the PYMONGOCRYPT_LIB is not set then load the embedded library and
 # fallback to the relying on a system installed library.
-_base = os.path.dirname(os.path.realpath(__file__))
-if sys.platform == 'win32':
-    _path = os.path.join(_base, 'mongocrypt.dll')
-elif sys.platform == 'darwin':
-    _path = os.path.join(_base, 'libmongocrypt.dylib')
+_base = Path(os.path.realpath(__file__)).parent
+if sys.platform == "win32":
+    _path = Path(_base) / "mongocrypt.dll"
+elif sys.platform == "darwin":
+    _path = Path(_base) / "libmongocrypt.dylib"
 else:
-    _path = os.path.join(_base, 'libmongocrypt.so')
+    _path = Path(_base) / "libmongocrypt.so"
 
 
-class _Library(object):
+class _Library:
     """Helper class for delaying errors that would usually be raised at
     import time until the library is actually used."""
+
     def __init__(self, error):
         self._error = error
 
@@ -1427,25 +1474,24 @@ class _Library(object):
         raise self._error
 
 
-_PYMONGOCRYPT_LIB = os.environ.get('PYMONGOCRYPT_LIB')
+_PYMONGOCRYPT_LIB = os.environ.get("PYMONGOCRYPT_LIB")
 try:
     if _PYMONGOCRYPT_LIB:
         lib = ffi.dlopen(_PYMONGOCRYPT_LIB)
     else:
         try:
-            lib = ffi.dlopen(_path)
-        except OSError as exc:
+            lib = ffi.dlopen(str(_path))
+        except OSError:
             # Fallback to libmongocrypt installed on the system.
-            lib = ffi.dlopen('mongocrypt')
+            lib = ffi.dlopen("mongocrypt")
 except OSError as exc:
     # dlopen raises OSError when the library cannot be found.
     # Delay the error until the library is actually used.
     lib = _Library(exc)
 else:
-    # Check the libmongocrypt version when the library is found.
-    _limongocrypt_version = _parse_version(libmongocrypt_version())
-    if _limongocrypt_version < _parse_version(_MIN_LIBMONGOCRYPT_VERSION):
+    _limongocrypt_version = Version(libmongocrypt_version())
+    if _limongocrypt_version < Version(_MIN_LIBMONGOCRYPT_VERSION):
         exc = RuntimeError(
-            "Expected libmongocrypt version %s or greater, found %s" % (
-                _MIN_LIBMONGOCRYPT_VERSION, libmongocrypt_version()))
+            f"Expected libmongocrypt version %s or greater, found {_MIN_LIBMONGOCRYPT_VERSION, libmongocrypt_version()}"
+        )
         lib = _Library(exc)

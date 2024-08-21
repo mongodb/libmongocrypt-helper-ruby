@@ -1,4 +1,37 @@
 # ChangeLog
+## 1.11.0
+### New features
+- Support `range` algorithm as stable.
+### Deprecated
+- The Windows download URLs for [stable](https://s3.amazonaws.com/mciuploads/libmongocrypt/windows/latest_release/libmongocrypt.tar.gz) and [unstable](https://s3.amazonaws.com/mciuploads/libmongocrypt/windows/latest_release/libmongocrypt_unstable.tar.gz) are now deprecated. See the GitHub Release page for Windows downloads.
+## 1.10.1
+## Fixed
+- Document `range` algorithm as unstable.
+## 1.10.0
+### New features
+- Support KMIP `delegated` option.
+- Support processing `bulkWrite` command.
+- Support `range` algorithm.
+## 1.9.1
+### New features
+- Add Debian 12 packages
+## 1.9.0
+### New features
+- Support named KMS providers.
+- Add `arm64` Debian packages
+## Fixed
+- Fix `arm64` Alpine build.
+## 1.8.4
+### Fixed
+- Fix `aarch64` packages for RHEL 8, RHEL 9, Amazon 2023, and Amazon 2
+## 1.8.3
+### Improvements
+- Include packages for RHEL 8, RHEL 9, and Amazon 2023
+## 1.8.2
+### Fixed
+- Fix possible leaks in Queryable Encryption in errors on malformed data.
+## 1.8.1
+- Bypass search index management commands in automatic encryption
 ## 1.8.0
 This release adds stable support of the Queryable Encryption (QE) feature for the "Indexed" and "Unindexed" algorithms.
 ## 1.8.0-alpha1

@@ -1,10 +1,70 @@
 Changelog
 =========
 
+Changes in Version 1.10.1
+------------------------
+
+- Bundle libmongocrypt 1.10.1 in release wheels.
+
+Changes in Version 1.10.0
+------------------------
+
+- Add Python async support.
+- Drop support for Python 3.7 and PyPy 3.8. Python >=3.8 or PyPy >=3.9 is now required.
+- Add support for range-based Queryable Encryption with the new "range"
+  algorithm on MongoDB 8.0+. This replaces the experimental "rangePreview" algorithm.
+- Add Secure Software Development Life Cycle automation to release process.
+  GitHub Releases for pymongocrypt now include a Software Bill of Materials, and signature
+  files corresponding to the distribution files released on PyPI.
+
+Changes in Version 1.9.2
+------------------------
+
+- Fix support for building source distributions with setuptools >= 70.
+
+
+Changes in Version 1.9.1
+------------------------
+
+- Fix bug in our release process which blocked uploading 1.9.0.
+
+Changes in Version 1.9.0
+------------------------
+
+- Add support for named KMS providers like "local:name1".
+  This feature requires libmongocrypt >= 1.9.0.
+- Use libmongocrypt native crypto when available which results in 10-50x better performance.
+  On Linux, it is recommended to download the platform specific build and
+  set PYMONGOCRYPT_LIB to the crypto-enabled libmongocrypt.so.
+- Bundle the crypto-enabled libmongocrypt builds in macOS and Windows wheels for better performance.
+- Bundle libmongocrypt 1.9.0 in release wheels.
+
+Changes in Version 1.8.0
+------------------------
+
+- Update from manylinux2010 to manylinux2014 wheels.
+- Bundle libmongocrypt 1.8.4 in release wheels.
+- Add support for manylinux_2_28_aarch64 wheels.
+
+Changes in Version 1.7.0
+------------------------
+
+- Add support for Python 3.12 on MacOS and Linux.
+- Update required cryptography version to >=2.5.
+
+Changes in Version 1.6.1
+------------------------
+
+- Bundle libmongocrypt 1.8.1 in release wheels.
+
 Changes in Version 1.6.0
 ------------------------
 
 - Drop support for Python 2 and Python <3.7. Python >=3.7 is now required.
+- Bundle libmongocrypt 1.8.0 in release wheels.
+- **Remove support for libmongocrypt <=1.8.0, libmongocrypt >=1.8.0
+  is now required.** Note this is only relevant for users that install from
+  source or use the ``PYMONGOCRYPT_LIB`` environment variable.
 
 Changes in Version 1.5.2
 ------------------------

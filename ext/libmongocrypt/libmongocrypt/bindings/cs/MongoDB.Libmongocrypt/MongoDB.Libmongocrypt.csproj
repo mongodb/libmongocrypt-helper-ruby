@@ -24,11 +24,12 @@
     <PackageTags>mongodb;mongo;nosql</PackageTags>
     <PackageLanguage>en-US</PackageLanguage>
     <IncludeSymbols>true</IncludeSymbols>
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>..\MongoDB.Driver.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
 
   <PropertyGroup>
     <LibMongoCryptBinaries>../../../cmake-build/$(Configuration)</LibMongoCryptBinaries>
-    <LibMongoCryptBinaries Condition="'$(Configuration)'=='Release' And '$(OS)' == 'Windows_NT'">../../../cmake-build/RelWithDebInfo/</LibMongoCryptBinaries>
   </PropertyGroup>
 
   <ItemGroup>
