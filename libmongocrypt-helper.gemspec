@@ -26,4 +26,6 @@ Gem::Specification.new do |s|
   s.files = Dir.glob('lib/**/*') + Dir.glob('ext/**/*') - [File.join('ext/libmongocrypt/libmongocrypt/build')]
 
   s.require_path = ['lib']
+
+  s.add_dependency('ffi')
 end
