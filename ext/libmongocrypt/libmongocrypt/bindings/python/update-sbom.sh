@@ -10,5 +10,5 @@ else
 fi
 
 echo "pkg:github/mongodb/libmongocrypt@$LIBMONGOCRYPT_VERSION" > purls.txt
-$DOCKER run --platform="linux/amd64" -it --rm -v $(pwd):$(pwd) artifactory.corp.mongodb.com/release-tools-container-registry-public-local/silkbomb:1.0 update --purls=$(pwd)/purls.txt -o $(pwd)/sbom.json
+$DOCKER run --platform="linux/amd64" -it --rm -v $(pwd):$(pwd) artifactory.corp.mongodb.com/release-tools-container-registry-public-local/silkbomb:2.0 update --purls=$(pwd)/purls.txt -o $(pwd)/sbom.json
 rm purls.txt

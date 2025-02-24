@@ -9,7 +9,7 @@ Version numbers of libmongocrypt must follow the format 1.[0-9].[0-9] for releas
 
 ### Check for Vulnerabilities
 
-Snyk and Silk are used to satisfy vulnerability scanning requirements of [DRIVERS-714](https://jira.mongodb.org/browse/DRIVERS-714). Prior to releasing, ensure necessary reported vulnerabilities meet requirements described in: [MongoDB Software Security Development Lifecycle Policy](https://docs.google.com/document/d/1u0m4Kj2Ny30zU74KoEFCN4L6D_FbEYCaJ3CQdCYXTMc/edit?tab=t.0#bookmark=id.l09k96qt24jm).
+Snyk and Kondukto are used to satisfy vulnerability scanning requirements of [DRIVERS-714](https://jira.mongodb.org/browse/DRIVERS-714). Prior to releasing, ensure necessary reported vulnerabilities meet requirements described in: [MongoDB Software Security Development Lifecycle Policy](https://docs.google.com/document/d/1u0m4Kj2Ny30zU74KoEFCN4L6D_FbEYCaJ3CQdCYXTMc/edit?tab=t.0#bookmark=id.l09k96qt24jm).
 
 #### Check Snyk
 
@@ -44,16 +44,15 @@ snyk monitor \
 
 Check the updated reference targets in Snyk for detected vulnerabilities.
 
-#### Check Silk
+#### Check Kondukto
 
-Get credentials for Silk from the `drivers/libmongocrypt` vault in [AWS Secrets Manager](https://wiki.corp.mongodb.com/display/DRIVERS/Using+AWS+Secrets+Manager+to+Store+Testing+Secrets).
+Get credentials for Kondukto from the `drivers/libmongocrypt` vault in [AWS Secrets Manager](https://wiki.corp.mongodb.com/display/DRIVERS/Using+AWS+Secrets+Manager+to+Store+Testing+Secrets).
 
 Download the Augmented SBOM using:
 ```bash
 ./.evergreen/earthly.sh \
-   --secret silk_client_id=${silk_client_id} \
-   --secret silk_client_secret=${silk_client_secret} \
-   +sbom-download \
+   --secret kondukto_token=${kondukto_token} \
+   +sbom-augment \
    --out cyclonedx.augmented.sbom.json \
    --branch <branch>
 ```
@@ -86,9 +85,8 @@ Do the following when releasing:
    - Attach the Augmented SBOM file. Download the Augmented SBOM using:
      ```bash
      ./.evergreen/earthly.sh \
-        --secret silk_client_id=${silk_client_id} \
-        --secret silk_client_secret=${silk_client_secret} \
-        +sbom-download \
+        --secret kondukto_token=${kondukto_token} \
+        +sbom-augment \
         --out cyclonedx.augmented.sbom.json \
         --branch <branch>
      ```
@@ -99,14 +97,6 @@ Do the following when releasing:
 
 - If this is a new minor release (e.g. `x.y.0`):
    - File a DOCSP ticket to update the installation instructions on [Install libmongocrypt](https://www.mongodb.com/docs/manual/core/csfle/reference/libmongocrypt/). ([Example](https://jira.mongodb.org/browse/DOCSP-36863))
-   - Create a new Silk asset group. Use the newly created release branch (e.g. `rx.y`) as the `--branch` argument:
-     ```bash
-     ./.evergreen/earthly.sh \
-        --secret silk_client_id=${silk_client_id} \
-        --secret silk_client_secret=${silk_client_secret} \
-        +silk-create-asset-group \
-        --branch <branch>
-     ```
    - Create a new Snyk reference target. The following instructions use the example branch `rx.y`:
 
      Run `cmake` to ensure generated source files are present:
