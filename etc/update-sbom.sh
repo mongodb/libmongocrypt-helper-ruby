@@ -13,7 +13,7 @@ echo "pkg:github/mongodb/libmongocrypt@${LIBMONGOCRYPT_VERSION}" > $PURLS_FILE
 
 # Use silkbomb to update the sbom.json file
 docker run --platform="linux/amd64" -it --rm -v ${ROOT_DIR}:/pwd \
-  artifactory.corp.mongodb.com/release-tools-container-registry-public-local/silkbomb:1.0 \
+  artifactory.corp.mongodb.com/release-tools-container-registry-public-local/silkbomb:2.0 \
   update --sbom-in /pwd/sbom.json --purls /pwd/purls.txt --sbom-out /pwd/sbom.json
 
 rm $PURLS_FILE

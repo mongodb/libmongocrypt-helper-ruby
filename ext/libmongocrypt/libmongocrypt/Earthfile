@@ -461,7 +461,7 @@ sign:
 #
 # See https://docs.devprod.prod.corp.mongodb.com/mms/python/src/sbom/silkbomb/ for documentation of silkbomb.
 silkbomb:
-    FROM artifactory.corp.mongodb.com/release-tools-container-registry-public-local/silkbomb:1.0
+    FROM artifactory.corp.mongodb.com/release-tools-container-registry-public-local/silkbomb:2.0
     # Alias the silkbom executable to a simpler name:
     RUN ln -s /python/src/sbom/silkbomb/bin /usr/local/bin/silkbomb
 
@@ -484,39 +484,24 @@ sbom-generate:
     # Save the result back to the host:
     SAVE ARTIFACT /s/cyclonedx.sbom.json AS LOCAL etc/cyclonedx.sbom.json
 
-# sbom-download:
-#   Download the Augmented SBOM file from Silk.
+# sbom-augment:
+#   Augment the SBOM file with vulnerability information from Kondukto.
 #
 # See https://wiki.corp.mongodb.com/display/DRIVERS/Using+AWS+Secrets+Manager+to+Store+Testing+Secrets for instructions to get secrets from AWS Secrets Manager. Secrets are available under `drivers/libmongocrypt`.
 #
-sbom-download:
+sbom-augment:
     ARG --required out
     ARG --required branch
     FROM +silkbomb
     WORKDIR /s
+    COPY etc/cyclonedx.sbom.json /s/
     # Download the Augmented SBOM file:
-    RUN --no-cache --secret silk_client_id --secret silk_client_secret \
-        SILK_CLIENT_ID=${silk_client_id} \
-        SILK_CLIENT_SECRET=${silk_client_secret} \
-        silkbomb download \
+    RUN --no-cache --secret kondukto_token KONDUKTO_TOKEN=${kondukto_token} \
+        silkbomb augment \
+        --sbom-in cyclonedx.sbom.json \
         --sbom-out cyclonedx.augmented.sbom.json \
-        --silk-asset-group libmongocrypt-${branch}
+        --repo mongodb/libmongocrypt-helper-ruby \
+        --branch ${branch}
     # Save the result back to the host:
     SAVE ARTIFACT /s/cyclonedx.augmented.sbom.json AS LOCAL ${out}
     RUN echo "Augmented SBOM saved to ${out}"
-
-# silk-create-asset-group:
-#   Create an asset group for Silk.
-#
-# See https://wiki.corp.mongodb.com/display/DRIVERS/Using+AWS+Secrets+Manager+to+Store+Testing+Secrets for instructions to get secrets from AWS Secrets Manager. Secrets are available under `drivers/libmongocrypt`.
-#
-silk-create-asset-group:
-    ARG --required branch
-    FROM +env.alpine
-    RUN __install curl jq
-    COPY etc/silk-create-asset-group.sh /s/silk-create-asset-group.sh
-    RUN --no-cache --secret silk_client_id --secret silk_client_secret \
-        silk_client_id=${silk_client_id} \
-        silk_client_secret=${silk_client_secret} \
-        branch=${branch} \
-            /s/silk-create-asset-group.sh
