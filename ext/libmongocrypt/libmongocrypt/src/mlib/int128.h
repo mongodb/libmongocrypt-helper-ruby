@@ -9,6 +9,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+// Deliberately using old-style casts for C and C++ compatibility.
+#if defined(__cplusplus) && defined(__clang__)
+_Pragma("clang diagnostic push");
+_Pragma("clang diagnostic ignored \"-Wold-style-cast\"");
+#endif
+
 MLIB_C_LINKAGE_BEGIN
 
 /**
@@ -496,7 +502,7 @@ static mlib_constexpr_fn mlib_int128_divmod_result mlib_int128_divmod(mlib_int12
             u[2] |= (uint32_t)(numer.r.lo >> (64 - d));
             u[4] |= (uint32_t)(numer.r.hi >> (64 - d));
             v[2] |= (uint32_t)(denom.r.lo >> (64 - d));
-        };
+        }
 
         uint32_t q[2] = {0};
         if (has_three) {
@@ -643,5 +649,10 @@ static mlib_constexpr_fn mlib_int128_charbuf mlib_int128_format(mlib_int128 i) {
 }
 
 MLIB_C_LINKAGE_END
+
+// Deliberately using old-style casts for C and C++ compatibility.
+#if defined(__cplusplus) && defined(__clang__)
+_Pragma("clang diagnostic pop");
+#endif
 
 #endif // MLIB_INT128_H_INCLUDED

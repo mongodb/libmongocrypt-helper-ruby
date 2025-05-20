@@ -124,6 +124,9 @@ struct _kms_response_parser_t {
       }                      \
    } while (0)
 
+#ifdef __GNUC__
+__attribute__((format(__printf__, 3, 4)))
+#endif
 void
 kms_set_error (char *error, size_t size, const char *fmt, ...);
 
@@ -137,6 +140,7 @@ kms_set_error (char *error, size_t size, const char *fmt, ...);
    if (!(stmt)) {                             \
       fprintf (stderr, "%s failed\n", #stmt); \
       abort ();                               \
-   }
+   } else                                     \
+       ((void)0)
 
 #endif /* KMS_MESSAGE_PRIVATE_H */
