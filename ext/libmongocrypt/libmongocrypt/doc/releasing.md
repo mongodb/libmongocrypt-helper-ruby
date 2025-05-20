@@ -9,7 +9,7 @@ Version numbers of libmongocrypt must follow the format 1.[0-9].[0-9] for releas
 
 ### Check for Vulnerabilities
 
-Snyk and Kondukto are used to satisfy vulnerability scanning requirements of [DRIVERS-714](https://jira.mongodb.org/browse/DRIVERS-714). Prior to releasing, ensure necessary reported vulnerabilities meet requirements described in: [MongoDB Software Security Development Lifecycle Policy](https://docs.google.com/document/d/1u0m4Kj2Ny30zU74KoEFCN4L6D_FbEYCaJ3CQdCYXTMc/edit?tab=t.0#bookmark=id.l09k96qt24jm).
+Snyk and Silk are used to satisfy vulnerability scanning requirements of [DRIVERS-714](https://jira.mongodb.org/browse/DRIVERS-714). Prior to releasing, ensure necessary reported vulnerabilities meet requirements described in: [MongoDB Software Security Development Lifecycle Policy](https://docs.google.com/document/d/1u0m4Kj2Ny30zU74KoEFCN4L6D_FbEYCaJ3CQdCYXTMc/edit?tab=t.0#bookmark=id.l09k96qt24jm).
 
 #### Check Snyk
 
@@ -44,17 +44,15 @@ snyk monitor \
 
 Check the updated reference targets in Snyk for detected vulnerabilities.
 
-#### Check Kondukto
+#### Check the Augmented SBOM
 
-Get credentials for Kondukto from the `drivers/libmongocrypt` vault in [AWS Secrets Manager](https://wiki.corp.mongodb.com/display/DRIVERS/Using+AWS+Secrets+Manager+to+Store+Testing+Secrets).
+Examine the Augmented SBOM from a recent execution of the `sbom` task in an Evergreen patch or commit build.
 
-Download the Augmented SBOM using:
+Evergreen CLI may be used to schedule only the `sbom` task:
+
 ```bash
-./.evergreen/earthly.sh \
-   --secret kondukto_token=${kondukto_token} \
-   +sbom-augment \
-   --out cyclonedx.augmented.sbom.json \
-   --branch <branch>
+# Ensure `-p` matches the correct Evergreen project for the current branch!
+evergreen patch -y -p libmongocrypt -t all -v sbom -f
 ```
 
 Check the contents of the "vulnerabilities" field (if present) in the Augmented SBOM.
@@ -82,21 +80,17 @@ Do the following when releasing:
       - If the `publish-packages` tasks fail with an error like `[curator] 2024/01/02 13:56:17 [p=emergency]: problem submitting repobuilder job: 404 (Not Found)`, this suggests the published path does not yet exist. Barque (the Linux package publishing service) has protection to avoid unintentional publishes. File a DEVPROD ticket ([example](https://jira.mongodb.org/browse/DEVPROD-4053)) and assign to the team called Release Infrastructure to request the path be created. Then re-run the failing `publish-packages` task. Ask in the slack channel `#devprod-release-tools` for further help with `Barque` or `curator`.
 - Create the release from the GitHub releases page from the new tag.
    - Attach the tarball and signature file from the Files tab of the `windows-upload-release` task. [Example](https://github.com/mongodb/libmongocrypt/releases/tag/1.10.0).
-   - Attach the Augmented SBOM file. Download the Augmented SBOM using:
-     ```bash
-     ./.evergreen/earthly.sh \
-        --secret kondukto_token=${kondukto_token} \
-        +sbom-augment \
-        --out cyclonedx.augmented.sbom.json \
-        --branch <branch>
-     ```
-     For a new minor release, use `master` for `--branch`. For a patch release, use the release branch (e.g. `rx.y`).
-     Secrets can be obtained from [AWS Secrets Manager](https://wiki.corp.mongodb.com/display/DRIVERS/Using+AWS+Secrets+Manager+to+Store+Testing+Secrets) under `drivers/libmongocrypt`.
+   - Attach the Augmented SBOM file to the release as `cyclonedx.augmented.sbom.json`.
+     Download the Augmented SBOM from a recent execution of the `sbom` task in an Evergreen patch or commit build.
    - Attach `etc/third_party_vulnerabilities.md` to the release.
    - Attach `etc/ssdlc_compliance_report.md` to the release.
 
 - If this is a new minor release (e.g. `x.y.0`):
    - File a DOCSP ticket to update the installation instructions on [Install libmongocrypt](https://www.mongodb.com/docs/manual/core/csfle/reference/libmongocrypt/). ([Example](https://jira.mongodb.org/browse/DOCSP-36863))
+   - Generate a new unique SBOM serial number for the next release:
+     ```bash
+     ./.evergreen/earthly.sh +sbom-generate-new-serial-number
+     ```
    - Create a new Snyk reference target. The following instructions use the example branch `rx.y`:
 
      Run `cmake` to ensure generated source files are present:
@@ -120,6 +114,10 @@ Do the following when releasing:
       --remote-repo-url=https://github.com/mongodb/libmongocrypt.git
      ```
      Snyk reference targets for older release branches may be removed if no further releases are expected on the branch.
+   - Update the [Github Webhook](https://wiki.corp.mongodb.com/display/INTX/Githook) to include the new branch.
+     - Navigate to the [Webhook Settings](https://github.com/mongodb/libmongocrypt/settings/hooks).
+     - Click `Edit` on the hook for `https://githook.mongodb.com/`.
+     - Add the new release branch to the `Payload URL`. Remove unmaintained release branches.
 - Make a PR to apply the "Update CHANGELOG.md for x.y.z" commit to the `master` branch.
 - Update the release on the [Jira releases page](https://jira.mongodb.org/projects/MONGOCRYPT/versions).
 - Record the release on [C/C++ Release Info](https://docs.google.com/spreadsheets/d/1yHfGmDnbA5-Qt8FX4tKWC5xk9AhzYZx1SKF4AD36ecY/edit?usp=sharing). This is done to meet SSDLC reporting requirements.
@@ -150,4 +148,3 @@ index 609dc0b..f7530a9 100644
      Architectures: amd64 arm64
    suites:
 ```
-

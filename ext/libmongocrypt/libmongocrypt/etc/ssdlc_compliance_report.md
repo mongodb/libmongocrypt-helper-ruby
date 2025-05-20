@@ -10,7 +10,7 @@ Not available. <!-- DRIVERS-2892: replace with link to public-facing document on
 
 ## Tool used to track third party vulnerabilities
 
-Kondukto and Snyk.
+Silk and Snyk.
 
 ## Third-Party Dependency Information
 
