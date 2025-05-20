@@ -108,6 +108,7 @@ set (MONGOCRYPT_SOURCES
    src/mc-fle2-encryption-placeholder.c
    src/mc-fle2-find-equality-payload.c
    src/mc-fle2-find-equality-payload-v2.c
+   src/mc-fle2-find-text-payload.c
    src/mc-fle2-payload-iev.c
    src/mc-fle2-payload-iev-v2.c
    src/mc-fle2-payload-uev.c
@@ -115,6 +116,7 @@ set (MONGOCRYPT_SOURCES
    src/mc-fle2-payload-uev-v2.c
    src/mc-fle2-rfds.c
    src/mc-fle2-tag-and-encrypted-metadata-block.c
+   src/mc-parse-utils.c
    src/mc-range-edge-generation.c
    src/mc-range-mincover.c
    src/mc-range-encoding.c
@@ -469,6 +471,7 @@ set (TEST_MONGOCRYPT_SOURCES
    test/test-mc-fle2-encryption-placeholder.c
    test/test-mc-fle2-find-equality-payload-v2.c
    test/test-mc-fle2-find-range-payload-v2.c
+   test/test-mc-fle2-find-text-payload.c
    test/test-mc-fle2-payload-iev.c
    test/test-mc-fle2-payload-iev-v2.c
    test/test-mc-fle2-payload-iup.c
@@ -533,6 +536,8 @@ target_compile_definitions (test-mongocrypt PRIVATE
    "TEST_MONGOCRYPT_OUTPUT_PATH=\"$<TARGET_FILE:test-mongocrypt>\""
    # Tell test-mongocrypt whether we have a real csfle library for testing
    TEST_MONGOCRYPT_HAVE_REAL_CRYPT_SHARED_LIB=$<BOOL:${MONGOCRYPT_TESTING_CRYPT_SHARED_FILE}>
+   # Tell test-mongocrypt the path of the libmongocrypt shared library for testing.
+   "TEST_MONGOCRYPT_MONGOCRYPT_SHARED_PATH=\"$<TARGET_FILE:mongocrypt>\""
    )
 
 add_test (
@@ -712,4 +717,3 @@ install (
    COMPONENT
       Devel
 )
-
