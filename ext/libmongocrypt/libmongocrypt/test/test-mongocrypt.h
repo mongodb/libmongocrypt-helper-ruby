@@ -48,7 +48,7 @@ typedef enum tester_mongocrypt_flags {
 
 /* Arbitrary max of 2148 instances of temporary test data. Increase as needed.
  */
-#define TEST_DATA_COUNT 2148
+#define TEST_DATA_COUNT 4096
 
 typedef struct __mongocrypt_tester_t {
     int test_count;
@@ -205,6 +205,8 @@ void _mongocrypt_tester_install_range_edge_generation(_mongocrypt_tester_t *test
 void _mongocrypt_tester_install_range_mincover(_mongocrypt_tester_t *tester);
 
 void _mongocrypt_tester_install_mc_RangeOpts(_mongocrypt_tester_t *tester);
+
+void _mongocrypt_tester_install_mc_TextOpts(_mongocrypt_tester_t *tester);
 
 void _mongocrypt_tester_install_mc_FLE2RangeFindDriverSpec(_mongocrypt_tester_t *tester);
 

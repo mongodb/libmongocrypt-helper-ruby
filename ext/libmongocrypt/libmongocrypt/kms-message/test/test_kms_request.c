@@ -99,7 +99,8 @@ test_file_path (const char *path, const char *suffix)
    char *r;
    char *test_name = last_segment (path);
    char file_path[PATH_MAX];
-   snprintf (file_path, PATH_MAX, "%s/%s.%s", path, test_name, suffix);
+   int ret = snprintf (file_path, PATH_MAX, "%s/%s.%s", path, test_name, suffix);
+   KMS_ASSERT (ret > 0 && ret < PATH_MAX);
    r = strdup (file_path);
    free (test_name);
    return r;
@@ -114,6 +115,7 @@ realloc_buffer (char **buffer, size_t *n, size_t len)
 
    } else {
       *buffer = realloc (*buffer, len);
+      KMS_ASSERT(*buffer);
    }
 
    *n = len;
@@ -604,6 +606,7 @@ connection_close_test (void)
    kms_request_t *request;
 
    opt = kms_request_opt_new ();
+   ASSERT (opt);
    kms_request_opt_set_connection_close (opt, true);
 
    request = kms_request_new ("POST", "/", opt);
@@ -1106,6 +1109,7 @@ kms_request_kmip_prohibited_test (void)
    kms_request_t *req;
 
    opt = kms_request_opt_new ();
+   ASSERT (opt);
    kms_request_opt_set_provider (opt, KMS_REQUEST_PROVIDER_KMIP);
    req = kms_request_new ("method", "path_and_query", opt);
    ASSERT_REQUEST_ERROR (req, "Function not applicable to KMIP");
@@ -1116,7 +1120,7 @@ kms_request_kmip_prohibited_test (void)
 static int
 count_substrings (const char *big, const char *little)
 {
-   char *iter;
+   const char *iter;
    int count = 0;
 
    iter = strstr (big, little);
@@ -1141,6 +1145,7 @@ test_request_newlines (void)
    // Test kms_request_to_string.
    {
       opt = kms_request_opt_new ();
+      ASSERT (opt);
       kms_request_opt_set_connection_close (opt, true);
       ASSERT (kms_request_opt_set_provider (opt, KMS_REQUEST_PROVIDER_AZURE));
       req = kms_azure_request_wrapkey_new ("example-host",
@@ -1167,6 +1172,7 @@ test_request_newlines (void)
    // Test kms_request_get_signed.
    {
       opt = kms_request_opt_new ();
+      ASSERT (opt);
       kms_request_opt_set_connection_close (opt, true);
       req = kms_caller_identity_request_new (opt);
       ASSERT_REQUEST_OK (req);
@@ -1210,6 +1216,7 @@ extern void kms_kmip_reader_test (void);
 extern void kms_kmip_reader_negative_int_test (void);
 extern void kms_kmip_reader_find_test (void);
 extern void kms_kmip_reader_find_and_recurse_test (void);
+extern void kms_kmip_reader_find_and_recurse_invalid_test (void);
 extern void kms_kmip_reader_find_and_read_enum_test (void);
 extern void kms_kmip_reader_find_and_read_bytes_test (void);
 extern void kms_kmip_request_register_secretdata_test (void);
@@ -1223,6 +1230,7 @@ extern void kms_kmip_response_get_secretdata_notfound_test (void);
 extern void kms_kmip_response_parser_reuse_test (void);
 extern void kms_kmip_response_parser_excess_test (void);
 extern void kms_kmip_response_parser_notenough_test (void);
+extern void kms_response_parser_response_too_big_test (void);
 
 int
 main (int argc, char *argv[])
@@ -1274,6 +1282,7 @@ main (int argc, char *argv[])
    RUN_TEST (kms_kmip_reader_negative_int_test);
    RUN_TEST (kms_kmip_reader_test);
    RUN_TEST (kms_kmip_reader_find_and_recurse_test);
+   RUN_TEST (kms_kmip_reader_find_and_recurse_invalid_test);
    RUN_TEST (kms_kmip_reader_find_and_read_enum_test);
    RUN_TEST (kms_kmip_reader_find_and_read_bytes_test);
    RUN_TEST (kms_kmip_request_register_secretdata_test);
@@ -1288,6 +1297,7 @@ main (int argc, char *argv[])
    RUN_TEST (kms_kmip_response_parser_reuse_test);
    RUN_TEST (kms_kmip_response_parser_excess_test);
    RUN_TEST (kms_kmip_response_parser_notenough_test);
+   RUN_TEST (kms_response_parser_response_too_big_test);
    RUN_TEST (test_request_newlines);
    RUN_TEST (test_kms_util);
 

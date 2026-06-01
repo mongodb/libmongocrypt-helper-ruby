@@ -90,8 +90,11 @@ static void test_nofold_suffix_prefix_case(_mongocrypt_tester_t *tester,
         if (lb > padded_len) {
             ASSERT(sets->suffix_set == NULL);
             ASSERT(sets->prefix_set == NULL);
+            ASSERT_CMPUINT32(sets->msize, ==, 1 /* for exact string */);
             goto CONTINUE;
         }
+
+        ASSERT_CMPUINT32(sets->msize, ==, n_affixes + 1 /* for exact string */);
 
         TEST_PRINTF("Expecting: n_real_affixes: %u, n_affixes: %u, n_padding: %u\n",
                     n_real_affixes,
@@ -263,10 +266,13 @@ static void test_nofold_substring_case(_mongocrypt_tester_t *tester,
 
     if (lb > padded_len) {
         ASSERT(sets->substring_set == NULL);
+        ASSERT_CMPUINT32(sets->msize, ==, 1 /* for exact string */);
         goto cleanup;
     } else {
         ASSERT(sets->substring_set != NULL);
     }
+
+    ASSERT_CMPUINT32(sets->msize, ==, n_substrings + 1 /* for exact string */);
 
     uint32_t n_real_substrings = calc_unique_substrings(sets->base_string, lb, ub);
     uint32_t n_padding = n_substrings - n_real_substrings;
@@ -416,6 +422,7 @@ static char *build_random_string_to_fold(uint32_t folded_len, uint32_t unfolded_
     uint32_t len = (uint32_t)(ptr - str);
     // ptr points to the final null character, include that in the final string.
     str = realloc(str, len + 1);
+    ASSERT(str);
 
     // Make sure we did everything right.
     ASSERT_CMPUINT32(unfolded_len, ==, get_utf8_codepoint_length(str, len));
@@ -1160,6 +1167,8 @@ static void _test_text_search_str_encode_multiple(_mongocrypt_tester_t *tester) 
 
     ASSERT_CMPUINT32(sets->exact.len, ==, 9);
     ASSERT_CMPINT(0, ==, memcmp(sets->exact.data, str, 9));
+
+    ASSERT_CMPUINT32(sets->msize, ==, 1 + 3 + 5 + 3); /* exact + substring + suffix + prefix */
 
     mc_str_encode_sets_destroy(sets);
 }

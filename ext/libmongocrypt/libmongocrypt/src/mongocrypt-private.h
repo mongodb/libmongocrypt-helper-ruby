@@ -33,7 +33,7 @@
 
 #include "mongo_crypt-v1.h"
 
-#include <mlib/macros.h>
+#include <mc-mlib/macros.h>
 
 #define MONGOCRYPT_GENERIC_ERROR_CODE 1
 
@@ -151,11 +151,17 @@ typedef enum {
     MONGOCRYPT_FLE2_ALGORITHM_TEXT_SEARCH = 4
 } mongocrypt_fle2_encryption_algorithm_t;
 
+typedef enum {
+    MONGOCRYPT_INDEX_TYPE_NONE = 1,
+    MONGOCRYPT_INDEX_TYPE_EQUALITY = 2,
+    MONGOCRYPT_INDEX_TYPE_RANGE = 3,
+    MONGOCRYPT_INDEX_TYPE_RANGEPREVIEW_DEPRECATED = 4,
+    MONGOCRYPT_INDEX_TYPE_TEXTPREVIEW = 5,
+} mongocrypt_index_type_t;
+
 bool _mongocrypt_validate_and_copy_string(const char *in, int32_t in_len, char **out) MONGOCRYPT_WARN_UNUSED_RESULT;
 
 char *_mongocrypt_new_string_from_bytes(const void *in, int len);
-
-char *_mongocrypt_new_json_string_from_binary(mongocrypt_binary_t *binary);
 
 /* _mongocrypt_needs_credentials returns true if @crypt was configured to
  * request credentials for any KMS provider. */
@@ -166,5 +172,7 @@ bool _mongocrypt_needs_credentials(mongocrypt_t *crypt);
 bool _mongocrypt_needs_credentials_for_provider(mongocrypt_t *crypt,
                                                 _mongocrypt_kms_provider_t provider,
                                                 const char *name);
+
+void _bson_value_from_string(const char *string, bson_value_t *value);
 
 #endif /* MONGOCRYPT_PRIVATE_H */

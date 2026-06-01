@@ -21,6 +21,7 @@
 #include "mc-optional-private.h"
 #include "mc-rangeopts-private.h"
 #include "mc-schema-broker-private.h"
+#include "mc-textopts-private.h"
 #include "mongocrypt-buffer-private.h"
 #include "mongocrypt-endpoint-private.h"
 #include "mongocrypt-key-broker-private.h"
@@ -37,19 +38,15 @@ typedef enum {
     _MONGOCRYPT_TYPE_COMPACT,
 } _mongocrypt_ctx_type_t;
 
-typedef enum {
-    MONGOCRYPT_INDEX_TYPE_NONE = 1,
-    MONGOCRYPT_INDEX_TYPE_EQUALITY = 2,
-    MONGOCRYPT_INDEX_TYPE_RANGE = 3,
-    MONGOCRYPT_INDEX_TYPE_RANGEPREVIEW_DEPRECATED = 4
-} mongocrypt_index_type_t;
-
 const char *_mongocrypt_index_type_to_string(mongocrypt_index_type_t val);
 
-typedef enum {
+typedef enum _mongocrypt_query_type_t {
     MONGOCRYPT_QUERY_TYPE_EQUALITY = 1,
     MONGOCRYPT_QUERY_TYPE_RANGE = 2,
-    MONGOCRYPT_QUERY_TYPE_RANGEPREVIEW_DEPRECATED = 3
+    MONGOCRYPT_QUERY_TYPE_RANGEPREVIEW_DEPRECATED = 3,
+    MONGOCRYPT_QUERY_TYPE_PREFIX = 4,
+    MONGOCRYPT_QUERY_TYPE_SUFFIX = 5,
+    MONGOCRYPT_QUERY_TYPE_SUBSTRINGPREVIEW = 6,
 } mongocrypt_query_type_t;
 
 const char *_mongocrypt_query_type_to_string(mongocrypt_query_type_t val);
@@ -87,6 +84,11 @@ typedef struct __mongocrypt_ctx_opts_t {
         mc_RangeOpts_t value;
         bool set;
     } rangeopts;
+
+    struct {
+        mc_TextOpts_t value;
+        bool set;
+    } textopts;
 } _mongocrypt_ctx_opts_t;
 
 // `_mongocrypt_ctx_opts_t` inherits extended alignment from libbson. To dynamically allocate, use
@@ -193,6 +195,10 @@ typedef struct {
 
     // cmd_name is the first BSON field in original_cmd for auto encryption.
     const char *cmd_name;
+
+    // need_keys_for_encryptedFields is set to true when keys are requested for
+    // keyAltName translation in encryptedFields.
+    bool need_keys_for_encryptedFields;
 } _mongocrypt_ctx_encrypt_t;
 
 // `_mongocrypt_ctx_encrypt_t` inherits extended alignment from libbson. To dynamically allocate, use
