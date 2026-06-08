@@ -80,3 +80,11 @@ namespace :update do
     puts "Successfully built and installed libmongocrypt-helper-#{version}"
   end
 end
+
+desc 'Update libmongocrypt version constants and source (runs update:version + update:libmongocrypt)'
+task :update => ['update:version', 'update:libmongocrypt']
+
+namespace :update do
+  desc 'Run all update steps: version, libmongocrypt, sbom, test'
+  task :all => ['update:version', 'update:libmongocrypt', 'update:sbom', 'update:test']
+end
