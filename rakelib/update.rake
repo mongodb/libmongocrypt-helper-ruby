@@ -65,4 +65,9 @@ namespace :update do
 
     puts "libmongocrypt #{version} source installed to #{dest}"
   end
+
+  desc 'Update sbom.json via etc/update-sbom.sh (requires Docker and MongoDB Artifactory access)'
+  task :sbom do
+    sh 'etc/update-sbom.sh'
+  end
 end
