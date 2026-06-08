@@ -30,13 +30,37 @@
             "bsonType": "string",
             "queries": [
                 {
-                    "queryType": "suffixPreview",
+                    "queryType": "suffix",
                     "contention": {
                         "$numberLong": "0"
                     }
                 },
                 {
-                    "queryType": "prefixPreview",
+                    "queryType": "prefix",
+                    "contention": {
+                        "$numberLong": "0"
+                    }
+                }
+            ]
+        },
+        {
+            "keyId": {
+                "$binary": {
+                    "base64": "EjRWeBI0mHYSNBI0VqvN7w==",
+                    "subType": "04"
+                }
+            },
+            "path": "middleName",
+            "bsonType": "string",
+            "queries": [
+                {
+                    "queryType": "suffix",
+                    "contention": {
+                        "$numberLong": "0"
+                    }
+                },
+                {
+                    "queryType": "prefix",
                     "contention": {
                         "$numberLong": "0"
                     }

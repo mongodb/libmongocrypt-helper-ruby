@@ -33,10 +33,13 @@ static mc_affix_set_t *generate_prefix_or_suffix_tree(const mc_utf8_string_with_
                                                       uint32_t unfolded_byte_len,
                                                       uint32_t lb,
                                                       uint32_t ub,
-                                                      bool is_prefix) {
+                                                      bool is_prefix,
+                                                      uint32_t *out_msize) {
     BSON_ASSERT_PARAM(base_str);
+    BSON_ASSERT_PARAM(out_msize);
     // We encrypt (unfolded string + 5 bytes of extra BSON info) with a 16-byte block cipher.
-    uint32_t encrypted_len = 16 * (uint32_t)((unfolded_byte_len + OVERHEAD_BYTES + 15) / 16);
+    // PKCS7 adds an extra 16-byte padding for 16-byte aligned plaintext lengths.
+    uint32_t encrypted_len = 16 * (uint32_t)((unfolded_byte_len + OVERHEAD_BYTES + 16) / 16);
     // Max len of a string that has this encrypted len.
     uint32_t padded_len = encrypted_len - OVERHEAD_BYTES;
     if (padded_len < lb) {
@@ -69,23 +72,24 @@ static mc_affix_set_t *generate_prefix_or_suffix_tree(const mc_utf8_string_with_
         n_inserted++;
     }
     BSON_ASSERT(n_inserted == set_size);
+    *out_msize += msize;
     return set;
 }
 
 static mc_affix_set_t *generate_suffix_tree(const mc_utf8_string_with_bad_char_t *base_str,
                                             uint32_t unfolded_byte_len,
-                                            const mc_FLE2SuffixInsertSpec_t *spec) {
-    BSON_ASSERT_PARAM(base_str);
+                                            const mc_FLE2SuffixInsertSpec_t *spec,
+                                            uint32_t *out_msize) {
     BSON_ASSERT_PARAM(spec);
-    return generate_prefix_or_suffix_tree(base_str, unfolded_byte_len, spec->lb, spec->ub, false);
+    return generate_prefix_or_suffix_tree(base_str, unfolded_byte_len, spec->lb, spec->ub, false, out_msize);
 }
 
 static mc_affix_set_t *generate_prefix_tree(const mc_utf8_string_with_bad_char_t *base_str,
                                             uint32_t unfolded_byte_len,
-                                            const mc_FLE2PrefixInsertSpec_t *spec) {
-    BSON_ASSERT_PARAM(base_str);
+                                            const mc_FLE2PrefixInsertSpec_t *spec,
+                                            uint32_t *out_msize) {
     BSON_ASSERT_PARAM(spec);
-    return generate_prefix_or_suffix_tree(base_str, unfolded_byte_len, spec->lb, spec->ub, true);
+    return generate_prefix_or_suffix_tree(base_str, unfolded_byte_len, spec->lb, spec->ub, true, out_msize);
 }
 
 static uint32_t calc_number_of_substrings(uint32_t strlen, uint32_t lb, uint32_t ub) {
@@ -104,11 +108,14 @@ static uint32_t calc_number_of_substrings(uint32_t strlen, uint32_t lb, uint32_t
 
 static mc_substring_set_t *generate_substring_tree(const mc_utf8_string_with_bad_char_t *base_str,
                                                    uint32_t unfolded_byte_len,
-                                                   const mc_FLE2SubstringInsertSpec_t *spec) {
+                                                   const mc_FLE2SubstringInsertSpec_t *spec,
+                                                   uint32_t *out_msize) {
     BSON_ASSERT_PARAM(base_str);
     BSON_ASSERT_PARAM(spec);
+    BSON_ASSERT_PARAM(out_msize);
     // We encrypt (unfolded string + 5 bytes of extra BSON info) with a 16-byte block cipher.
-    uint32_t encrypted_len = 16 * (uint32_t)((unfolded_byte_len + OVERHEAD_BYTES + 15) / 16);
+    // PKCS7 adds an extra 16-byte padding for 16-byte aligned plaintext lengths.
+    uint32_t encrypted_len = 16 * (uint32_t)((unfolded_byte_len + OVERHEAD_BYTES + 16) / 16);
     // Max len of a string that has this encrypted len.
     uint32_t padded_len = encrypted_len - OVERHEAD_BYTES;
     if (padded_len < spec->lb) {
@@ -164,6 +171,7 @@ static mc_substring_set_t *generate_substring_tree(const mc_utf8_string_with_bad
         BSON_ASSERT(msize > n_real_substrings);
         mc_substring_set_increment_fake_string(set, msize - n_real_substrings);
     }
+    *out_msize += msize;
     return set;
 }
 
@@ -215,11 +223,13 @@ mc_str_encode_sets_t *mc_text_search_str_encode(const mc_FLE2TextSearchInsertSpe
     mc_str_encode_sets_t *sets = bson_malloc0(sizeof(mc_str_encode_sets_t));
     // Base string is the folded string plus the 0xFF character
     sets->base_string = base_string;
+    // Initialize msize at 1 for the exact string, and grow it for each encoding.
+    sets->msize = 1;
     if (spec->suffix.set) {
-        sets->suffix_set = generate_suffix_tree(sets->base_string, spec->len, &spec->suffix.value);
+        sets->suffix_set = generate_suffix_tree(sets->base_string, spec->len, &spec->suffix.value, &sets->msize);
     }
     if (spec->prefix.set) {
-        sets->prefix_set = generate_prefix_tree(sets->base_string, spec->len, &spec->prefix.value);
+        sets->prefix_set = generate_prefix_tree(sets->base_string, spec->len, &spec->prefix.value, &sets->msize);
     }
     if (spec->substr.set) {
         uint32_t unfolded_codepoint_len = mc_get_utf8_codepoint_length(spec->v, spec->len);
@@ -231,7 +241,7 @@ mc_str_encode_sets_t *mc_text_search_str_encode(const mc_FLE2TextSearchInsertSpe
             mc_str_encode_sets_destroy(sets);
             return NULL;
         }
-        sets->substring_set = generate_substring_tree(sets->base_string, spec->len, &spec->substr.value);
+        sets->substring_set = generate_substring_tree(sets->base_string, spec->len, &spec->substr.value, &sets->msize);
     }
     // Exact string is always equal to the base string up until the bad character
     _mongocrypt_buffer_from_data(&sets->exact, sets->base_string->buf.data, (uint32_t)sets->base_string->buf.len - 1);

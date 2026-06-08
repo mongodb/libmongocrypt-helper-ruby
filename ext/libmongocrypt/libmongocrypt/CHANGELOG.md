@@ -1,4 +1,127 @@
 # ChangeLog
+
+## 1.19.0
+
+### Added
+- Stable support for prefix and suffix queries:
+    - The `prefixPreview` query type is replaced with `prefix`.
+    - The `suffixPreview` query type is replaced with `suffix`.
+    - Use the `string` algorithm (formerly `textPreview`) for `prefix`, `suffix`, and `substringPreview` query types.
+
+### Removed
+- Support for the experimental `prefixPreview` and `suffixPreview` query types.
+
+## 1.18.1
+
+### Fixed
+- Fix QE text explicit encryption handling of `caseSensitive` and `diacriticSensitive` options.
+    - This is a backwards breaking bug fix, but only applies to the experimental QE text algorithm "TextPreview".
+- Fix handling of malformed KMS replies.
+
+## 1.18.0
+
+### Added
+- Signed binaries for macOS and Linux are now available on the GitHub release.
+    - Linux binaries including `nocrypto` in the name have no dependency on OpenSSL. Drivers using the `nocrypto` variant are expected to set crypto callbacks (e.g. call `mongocrypt_setopt_crypto_hooks`) to do operations requiring crypto to avoid an error.
+    - Drivers that package libmongocrypt binaries are encouraged to migrate release scripts to use these binaries.
+        - No reduction in platform support is expected. glibc dependencies were checked against existing builds on RHEL 6.2 and Ubuntu 16.04.
+- Support referencing keys by `keyAltName` in `encryptedFieldsMap`.
+
+### Changed
+
+- Final release packages in the PPA are now available by specifying `release` in the repository configuration in place of the major/minor version (e.g., `1.17`). Details in `README.md`.
+- Bump downloaded libbson version from 2.1.0 to 2.3.0.
+
+### Deprecated
+- RHEL 6.2 builds are deprecated and may be removed in the future. The `linux-x86_64-glibc_2_7-nocrypto` release build may be used instead and has equivalent glibc requirements.
+
+### Removed
+
+- The configure-time CMake parameter `ENABLE_WINDOWS_STATIC_RUNTIME` has been
+  removed. Users that need the static MSVCRT library should instead set the
+  [`CMAKE_MSVC_RUNTIME_LIBRARY`][msvcrt] built-in CMake parameter when
+  configuring libmongocrypt.
+- Packages for Debian 9 and Debian 10.
+
+[msvcrt]: https://cmake.org/cmake/help/latest/variable/CMAKE_MSVC_RUNTIME_LIBRARY.html
+
+## 1.17.3
+
+### Fixed
+
+- Fix check in KMIP parser.
+
+## 1.17.2
+
+### Fixed
+
+- Fix build warning with GCC 16
+
+## 1.17.1
+
+Add package for Debian Trixie.
+
+## 1.17.0
+
+### New features
+
+- Support mixing QE and unencrypted JSON schemas.
+
+### Fixed
+
+- Comply with CMake policy CMP0148 (use `FindPython` instead of `FindPythonInterp` and `FindPythonLibs`).
+- Fix possible resource leak in Queryable Encryption.
+
+## 1.16.0
+
+### Changed
+
+- Set CMake minimum required version to `3.15...4.0` (with maximum policy version set to `4.0`).
+- `FetchContent_MakeAvailable()` is used to populate dependencies instead of `FetchContent_Populate()`.
+  - This applies to MongoDB C Driver when `MONGOCRYPT_MONGOC_DIR` is not set to `USE-SYSTEM`.
+  - This applies to IntelDFP when `MONGOCRYPT_DFP_DIR` is not set to `USE-SYSTEM`.
+  - Note: `FetchContent_Populate()` is still used for CMake versions prior to 3.18 to avoid `add_subdirectory()` behavior.
+- Bump downloaded libbson version from 1.30.3 to 2.1.0.
+
+### New features
+- Support in-place retry on KMS requests.
+
+### Fixed
+- Do not propagate `-fPIC` in CMake targets.
+
+## 1.15.2
+
+### Fixed
+- Rename internal headers to avoid conflicts building libmongocrypt and C driver together.
+
+## 1.15.1
+
+### Fixed
+- Fix possible error when text options include multiple query types and are used for a find payload: `Text search query specification cannot contain multiple query type specifications`.
+- Require setting contention for text options.
+- Improve error message if text options are unset when using text algorithm.
+
+
+## 1.15.0
+
+### New features
+- Support experimental Queryable Encryption text indexes with `cleanupStructuredEncryptionData` and `compactStructuredEncryptionData`.
+- Support experimental explicit encryption for algorithm type: `textPreview` and query types: `prefixPreview`, `suffixPreview` and `substringPreview`
+    - Add `mongocrypt_setopt_algorithm_text` to apply options for explicit encryption.
+
+### Fixed
+- Bypass command `buildinfo` (previously only `buildInfo` was bypassed).
+- Bypass command `serverStatus`.
+
+### Removed
+- Support for building with Visual Studio 2015. Use Visual Studio 2017 or newer.
+
+## 1.14.1
+### Fixed
+- Fix possible missing error state on `mongocrypt_ctx_finalize`.
+### Improvements
+- Add Ubuntu 24.04 package.
+
 ## 1.14.0
 ### Fixed
 - Fix building against libbson with extra alignment enabled (`ENABLE_EXTRA_ALIGNMENT=ON`).
@@ -6,6 +129,8 @@
 ### Improvements
 - Improve performance of OpenSSL crypto operations.
 - Improve error for incorrect path to crypt_shared library.
+### New features
+- Support experimental Queryable Encryption text indexes for automatic encryption.
 
 ## 1.13.2
 ### Notes
@@ -134,7 +259,7 @@ This release makes backwards breaking changes to Queryable Encryption (QE) behav
 ## Warnings
 - This release has a severe bug in the context returned by `mongocrypt_ctx_rewrap_many_datakey_init` that may result in data corruption. Please upgrade to 1.5.2 before using `mongocrypt_ctx_rewrap_many_datakey_init`.
 ## Fixed
-- Update to use new payload for FLE 2.0 find. 
+- Update to use new payload for FLE 2.0 find.
 - Require contention factor.
 ## 1.5.0-rc2
 ### Fixed
@@ -154,7 +279,7 @@ This release makes backwards breaking changes to Queryable Encryption (QE) behav
 ## 1.5.0-rc0
 ## Fixed
 - Account for shared library rename.
-- Update to use new payload for FLE 2.0 find. 
+- Update to use new payload for FLE 2.0 find.
 
 ## 1.5.0-alpha2
 ## New Features

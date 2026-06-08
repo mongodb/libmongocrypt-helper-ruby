@@ -268,12 +268,14 @@ void mc_FLE2IndexedEncryptedValueV2_destroy(mc_FLE2IndexedEncryptedValueV2_t *ie
     _mongocrypt_buffer_cleanup(&iev->ServerEncryptedValue);
     _mongocrypt_buffer_cleanup(&iev->S_KeyId);
 
-    for (uint32_t i = 0; i < iev->edge_count; i++) {
-        mc_FLE2TagAndEncryptedMetadataBlock_cleanup(&iev->metadata[i]);
-    }
+    if (iev->metadata) {
+        for (uint32_t i = 0; i < iev->edge_count; i++) {
+            mc_FLE2TagAndEncryptedMetadataBlock_cleanup(&iev->metadata[i]);
+        }
 
-    // Metadata array is dynamically allocated
-    bson_free(iev->metadata);
+        // Metadata array is dynamically allocated
+        bson_free(iev->metadata);
+    }
 
     bson_free(iev);
 }
@@ -598,9 +600,8 @@ bool mc_FLE2IndexedEncryptedValueV2_parse(mc_FLE2IndexedEncryptedValueV2_t *iev,
         }
     }
 
-    // Maximum edge_count(4294967295) times kMetadataLen(96) fits easily without
-    // overflow.
-    const uint64_t metadata_len = iev->edge_count * kMetadataLen;
+    // Maximum edge_count(4294967295) times kMetadataLen(96) fits easily without overflowing uint64.
+    const uint64_t metadata_len = (uint64_t)iev->edge_count * (uint64_t)kMetadataLen;
 
     /* Read ServerEncryptedValue. */
     const uint64_t min_required_len = kMinServerEncryptedValueLen + metadata_len;
@@ -620,11 +621,12 @@ bool mc_FLE2IndexedEncryptedValueV2_parse(mc_FLE2IndexedEncryptedValueV2_t *iev,
     // Read each metadata element in buff
     for (uint32_t i = 0; i < iev->edge_count; i++) {
         _mongocrypt_buffer_t tmp_buf;
+        const uint8_t *mbuf = NULL;
 
-        CHECK_AND_RETURN(mc_reader_read_buffer(&reader, &tmp_buf, kMetadataLen, status));
+        CHECK_AND_RETURN(mc_reader_read_bytes(&reader, &mbuf, kMetadataLen, status));
+        _mongocrypt_buffer_from_data(&tmp_buf, mbuf, kMetadataLen);
+
         CHECK_AND_RETURN(mc_FLE2TagAndEncryptedMetadataBlock_parse(&iev->metadata[i], &tmp_buf, status));
-
-        _mongocrypt_buffer_cleanup(&tmp_buf);
     }
 
     return true;

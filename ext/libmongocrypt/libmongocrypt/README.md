@@ -1,5 +1,8 @@
 # libmongocrypt #
+
 The companion C library for client side encryption in drivers.
+
+This project uses [Semantic Versioning](https://semver.org/).
 
 # Bugs / Feature Requests #
 
@@ -13,7 +16,6 @@ If you have encountered a bug, or would like to see a new feature in libmongocry
 See [The Integration Guide](integrating.md) to integrate with your driver.
 
 See [mongocrypt.h](src/mongocrypt.h) for the public API reference.
-The documentation can be rendered into HTML with doxygen. Run `doxygen ./doc/Doxygen`, then open `./doc/html/index.html`.
 
 ## Building libmongocrypt ##
 
@@ -102,8 +104,14 @@ See [releasing](./doc/releasing.md).
 ## Installing libmongocrypt From Distribution Packages ##
 Distribution packages (i.e., .deb/.rpm) are built and published for several Linux distributions.  The installation of these packages for supported platforms is documented here.
 
-### Unstable Development Distribution Packages ###
-To install the latest unstable development package, change `1.14` to `development` in the package URLs listed in the subsequent instructions. For example, `https://libmongocrypt.s3.amazonaws.com/apt/ubuntu <release>/libmongocrypt/1.14` in the instructions would become `https://libmongocrypt.s3.amazonaws.com/apt/ubuntu <release>/libmongocrypt/development`. Do not use the unstable version of libmongocrypt in a production environment.
+### Package Publication Channels ###
+The libmongocrypt project publishes packages in three different channels: `release`, `testing`, and `development`. The channel descriptions are:
+
+- `release`: packages representing final releases, having version numbers like `1.17.2`, `1.18.0`, etc.
+- `testing`: packages representing pre-releases (e.g., alpha and beta versions); this channel is currently dormant
+- `development`: packages created from each build which passes CI, having version numbers like `1.17.3~<date>+git<commit-hash>`; these packages are not considered suitable for production use
+
+In the below sections, replace the placeholder `<channel>` with the value that best matches your particular needs.
 
 ### .deb Packages (Debian and Ubuntu) ###
 
@@ -111,7 +119,7 @@ The repository containing the Debian and Ubuntu .deb packages can be configured 
 
 #### Repository configuration with extrepo ####
 
-Extrepo is available on Debian 11 and newer, as well as Ubuntu 20.04 and newer.
+Extrepo is available on Debian 11 and newer, as well as Ubuntu 22.04 and newer.
 
 First, install the extrepo package:
 
@@ -128,7 +136,7 @@ extrepo search libmongocrypt
 In order to enable the repository, execute this command:
 
 ```
-sudo extrepo enable libmongocrypt
+sudo extrepo enable libmongocrypt-release
 ```
 
 Once the repository is configured, continue with package installation.
@@ -141,16 +149,16 @@ First, import the public key used to sign the package repositories:
 sudo sh -c 'curl -s --location https://pgp.mongodb.com/libmongocrypt.asc | gpg --dearmor >/etc/apt/trusted.gpg.d/libmongocrypt.gpg'
 ```
 
-Second, create a list entry for the repository.  For Ubuntu systems (be sure to change `<release>` to `xenial`, `bionic`, `focal`, or `jammy`, as appropriate to your system):
+Second, create a list entry for the repository.  For Ubuntu systems (be sure to change `<release>` to `jammy` or `noble` as appropriate to your system):
 
 ```
-echo "deb https://libmongocrypt.s3.amazonaws.com/apt/ubuntu <release>/libmongocrypt/1.14 universe" | sudo tee /etc/apt/sources.list.d/libmongocrypt.list
+echo "deb https://libmongocrypt.s3.amazonaws.com/apt/ubuntu <release>/libmongocrypt/<channel> universe" | sudo tee /etc/apt/sources.list.d/libmongocrypt.list
 ```
 
-For Debian systems (be sure to change `<release>` to `stretch`, `buster`, `bullseye`, or `bookworm` as appropriate to your system):
+For Debian systems (be sure to change `<release>` to `bullseye`, `bookworm`, or `trixie` as appropriate to your system):
 
 ```
-echo "deb https://libmongocrypt.s3.amazonaws.com/apt/debian <release>/libmongocrypt/1.14 main" | sudo tee /etc/apt/sources.list.d/libmongocrypt.list
+echo "deb https://libmongocrypt.s3.amazonaws.com/apt/debian <release>/libmongocrypt/<channel> main" | sudo tee /etc/apt/sources.list.d/libmongocrypt.list
 ```
 
 #### Package installation ####
@@ -164,6 +172,7 @@ sudo apt-get install -y libmongocrypt-dev
 
 ### .rpm Packages (RedHat, Suse, and Amazon) ###
 
+RPMs are available for supported systems running on both x86_64 and AArch64 (also called ARM64) processors. The sections below use `x86_64` in the example repository URLs. Substituting `aarch64` in the place of `x86_64` will permit installation of libmongocrypt packages on systems running on AArch64 processors.
 
 #### RedHat Enterprise Linux ####
 
@@ -172,7 +181,7 @@ Create the file `/etc/yum.repos.d/libmongocrypt.repo` with contents:
 ```
 [libmongocrypt]
 name=libmongocrypt repository
-baseurl=https://libmongocrypt.s3.amazonaws.com/yum/redhat/$releasever/libmongocrypt/1.14/x86_64
+baseurl=https://libmongocrypt.s3.amazonaws.com/yum/redhat/$releasever/libmongocrypt/<channel>/x86_64
 gpgcheck=1
 enabled=1
 gpgkey=https://pgp.mongodb.com/libmongocrypt.asc
@@ -191,7 +200,7 @@ Create the file `/etc/yum.repos.d/libmongocrypt.repo` with contents:
 ```
 [libmongocrypt]
 name=libmongocrypt repository
-baseurl=https://libmongocrypt.s3.amazonaws.com/yum/amazon/2023/libmongocrypt/1.14/x86_64
+baseurl=https://libmongocrypt.s3.amazonaws.com/yum/amazon/2023/libmongocrypt/<channel>/x86_64
 gpgcheck=1
 enabled=1
 gpgkey=https://pgp.mongodb.com/libmongocrypt.asc
@@ -210,7 +219,7 @@ Create the file `/etc/yum.repos.d/libmongocrypt.repo` with contents:
 ```
 [libmongocrypt]
 name=libmongocrypt repository
-baseurl=https://libmongocrypt.s3.amazonaws.com/yum/amazon/2/libmongocrypt/1.14/x86_64
+baseurl=https://libmongocrypt.s3.amazonaws.com/yum/amazon/2/libmongocrypt/<channel>/x86_64
 gpgcheck=1
 enabled=1
 gpgkey=https://pgp.mongodb.com/libmongocrypt.asc
@@ -229,7 +238,7 @@ Create the file `/etc/yum.repos.d/libmongocrypt.repo` with contents:
 ```
 [libmongocrypt]
 name=libmongocrypt repository
-baseurl=https://libmongocrypt.s3.amazonaws.com/yum/amazon/2013.03/libmongocrypt/1.14/x86_64
+baseurl=https://libmongocrypt.s3.amazonaws.com/yum/amazon/2013.03/libmongocrypt/<channel>/x86_64
 gpgcheck=1
 enabled=1
 gpgkey=https://pgp.mongodb.com/libmongocrypt.asc
@@ -252,7 +261,7 @@ sudo rpm --import https://pgp.mongodb.com/libmongocrypt.asc
 Second, add the repository (be sure to change `<release>` to `12` or `15`, as appropriate to your system):
 
 ```
-sudo zypper addrepo --gpgcheck "https://libmongocrypt.s3.amazonaws.com/zypper/suse/<release>/libmongocrypt/1.14/x86_64" libmongocrypt
+sudo zypper addrepo --gpgcheck "https://libmongocrypt.s3.amazonaws.com/zypper/suse/<release>/libmongocrypt/<channel>/x86_64" libmongocrypt
 ```
 
 Finally, install the libmongocrypt packages:

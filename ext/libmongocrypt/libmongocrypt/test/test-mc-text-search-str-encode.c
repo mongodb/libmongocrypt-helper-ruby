@@ -36,6 +36,14 @@ static uint32_t get_utf8_codepoint_length(const char *buf, uint32_t len) {
     return codepoint_len;
 }
 
+static uint32_t calculate_padded_length(uint32_t byte_len) {
+    const uint32_t bson_overhead = 5;
+    // Calculate length with CBC padding:
+    uint32_t encrypted_len = _mcFLE2v2AEADAlgorithm()->get_ciphertext_len(byte_len + bson_overhead, NULL)
+                           - MONGOCRYPT_IV_LEN - MONGOCRYPT_HMAC_LEN;
+    return encrypted_len - bson_overhead;
+}
+
 static void test_nofold_suffix_prefix_case(_mongocrypt_tester_t *tester,
                                            const char *str,
                                            uint32_t lb,
@@ -52,7 +60,7 @@ static void test_nofold_suffix_prefix_case(_mongocrypt_tester_t *tester,
     uint32_t byte_len = (uint32_t)strlen(str);
     uint32_t unfolded_codepoint_len = byte_len == 0 ? 1 : get_utf8_codepoint_length(str, byte_len);
     uint32_t folded_codepoint_len = byte_len == 0 ? 0 : unfolded_codepoint_len - foldable_codepoints;
-    uint32_t padded_len = 16 * (uint32_t)((byte_len + 5 + 15) / 16) - 5;
+    uint32_t padded_len = calculate_padded_length(byte_len);
     uint32_t max_affix_len = BSON_MIN(ub, folded_codepoint_len);
     uint32_t n_real_affixes = max_affix_len >= lb ? max_affix_len - lb + 1 : 0;
     uint32_t n_affixes = BSON_MIN(ub, padded_len) - lb + 1;
@@ -90,8 +98,11 @@ static void test_nofold_suffix_prefix_case(_mongocrypt_tester_t *tester,
         if (lb > padded_len) {
             ASSERT(sets->suffix_set == NULL);
             ASSERT(sets->prefix_set == NULL);
+            ASSERT_CMPUINT32(sets->msize, ==, 1 /* for exact string */);
             goto CONTINUE;
         }
+
+        ASSERT_CMPUINT32(sets->msize, ==, n_affixes + 1 /* for exact string */);
 
         TEST_PRINTF("Expecting: n_real_affixes: %u, n_affixes: %u, n_padding: %u\n",
                     n_real_affixes,
@@ -231,7 +242,7 @@ static void test_nofold_substring_case(_mongocrypt_tester_t *tester,
     uint32_t byte_len = (uint32_t)strlen(str);
     uint32_t unfolded_codepoint_len = byte_len == 0 ? 1 : get_utf8_codepoint_length(str, byte_len);
     uint32_t folded_codepoint_len = byte_len == 0 ? 0 : unfolded_codepoint_len - foldable_codepoints;
-    uint32_t padded_len = 16 * (uint32_t)((byte_len + 5 + 15) / 16) - 5;
+    uint32_t padded_len = calculate_padded_length(byte_len);
     uint32_t n_substrings = calc_number_of_substrings(BSON_MIN(padded_len, mlen), lb, ub);
 
     mongocrypt_status_t *status = mongocrypt_status_new();
@@ -263,10 +274,13 @@ static void test_nofold_substring_case(_mongocrypt_tester_t *tester,
 
     if (lb > padded_len) {
         ASSERT(sets->substring_set == NULL);
+        ASSERT_CMPUINT32(sets->msize, ==, 1 /* for exact string */);
         goto cleanup;
     } else {
         ASSERT(sets->substring_set != NULL);
     }
+
+    ASSERT_CMPUINT32(sets->msize, ==, n_substrings + 1 /* for exact string */);
 
     uint32_t n_real_substrings = calc_unique_substrings(sets->base_string, lb, ub);
     uint32_t n_padding = n_substrings - n_real_substrings;
@@ -416,6 +430,7 @@ static char *build_random_string_to_fold(uint32_t folded_len, uint32_t unfolded_
     uint32_t len = (uint32_t)(ptr - str);
     // ptr points to the final null character, include that in the final string.
     str = realloc(str, len + 1);
+    ASSERT(str);
 
     // Make sure we did everything right.
     ASSERT_CMPUINT32(unfolded_len, ==, get_utf8_codepoint_length(str, len));
@@ -565,6 +580,9 @@ static void _test_text_search_str_encode_suffix_prefix(_mongocrypt_tester_t *tes
     bson_free(short_s);
     bson_free(medium_s);
     bson_free(long_s);
+
+    // Test fixed strings where byte_len+5 is a multiple of 16. Regression test for MONGOCRYPT-917
+    test_nofold_suffix_prefix_case(tester, "abcdefghijk" /* 11 chars */, 1, 30, false, false, 0);
 }
 
 static void substring_run_folding_case(_mongocrypt_tester_t *tester,
@@ -1118,6 +1136,9 @@ static void _test_text_search_str_encode_substring(_mongocrypt_tester_t *tester)
     bson_free(short_s);
     bson_free(medium_s);
     bson_free(long_s);
+
+    // Test fixed strings where byte_len+5 is a multiple of 16. Regression test for MONGOCRYPT-917.
+    test_nofold_substring_case(tester, "abcdefghijk" /* 11 chars */, 1, 30, 16, false, false, 0);
 }
 
 static void _test_text_search_str_encode_multiple(_mongocrypt_tester_t *tester) {
@@ -1160,6 +1181,8 @@ static void _test_text_search_str_encode_multiple(_mongocrypt_tester_t *tester) 
 
     ASSERT_CMPUINT32(sets->exact.len, ==, 9);
     ASSERT_CMPINT(0, ==, memcmp(sets->exact.data, str, 9));
+
+    ASSERT_CMPUINT32(sets->msize, ==, 1 + 3 + 5 + 3); /* exact + substring + suffix + prefix */
 
     mc_str_encode_sets_destroy(sets);
 }

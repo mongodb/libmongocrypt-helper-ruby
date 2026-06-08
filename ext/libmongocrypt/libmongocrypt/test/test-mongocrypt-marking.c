@@ -985,13 +985,15 @@ static void validate_encrypted_token(mongocrypt_t *crypt,
                                      mongocrypt_binary_t *encrypted_token_bin,
                                      mongocrypt_binary_t *expected_esc_token,
                                      bool expect_is_leaf,
-                                     uint8_t *is_leaf_out) {
+                                     uint8_t *is_leaf_out,
+                                     bool expect_msize,
+                                     uint32_t *msize_out) {
     mongocrypt_status_t *status = mongocrypt_status_new();
     mc_ECOCToken_t *ecocToken = getECOCToken(crypt);
     const _mongocrypt_value_encryption_algorithm_t *fle2alg = _mcFLE2Algorithm();
 
     _mongocrypt_buffer_t p_buf, decrypt_buf;
-    uint32_t expect_decrypt_size = expected_esc_token->len + (expect_is_leaf ? 1 : 0);
+    uint32_t expect_decrypt_size = expected_esc_token->len + (expect_is_leaf ? 1 : 0) + (expect_msize ? 3 : 0);
     ASSERT(_mongocrypt_buffer_copy_from_data_and_size(&p_buf, encrypted_token_bin->data, encrypted_token_bin->len));
 
     _mongocrypt_buffer_init_size(&decrypt_buf, expect_decrypt_size);
@@ -1008,6 +1010,11 @@ static void validate_encrypted_token(mongocrypt_t *crypt,
 
     if (expect_is_leaf && is_leaf_out) {
         *is_leaf_out = decrypt_buf.data[decrypt_buf.len - 1];
+    }
+
+    if (expect_msize && msize_out) {
+        *msize_out = decrypt_buf.data[decrypt_buf.len - 3] | decrypt_buf.data[decrypt_buf.len - 2] << 8
+                   | decrypt_buf.data[decrypt_buf.len - 1] << 16;
     }
 
     _mongocrypt_buffer_cleanup(&decrypt_buf);
@@ -1082,7 +1089,7 @@ validate_range_ciphertext(_mongocrypt_ciphertext_t *ciphertext, mongocrypt_t *cr
 
     // validate crypto of 'p'
     uint8_t is_leaf = 255;
-    validate_encrypted_token(crypt, &res.p, &res.s, true, &is_leaf);
+    validate_encrypted_token(crypt, &res.p, &res.s, true, &is_leaf, false, NULL);
     // isLeaf byte should be 0.
     ASSERT(is_leaf == 0);
 
@@ -1119,7 +1126,7 @@ validate_range_ciphertext(_mongocrypt_ciphertext_t *ciphertext, mongocrypt_t *cr
         ASSERT_CMPUINT32(esc_token_bin.len, ==, MONGOCRYPT_HMAC_SHA256_LEN);
 
         uint8_t is_leaf = 255;
-        validate_encrypted_token(crypt, &encrypted_token_bin, &esc_token_bin, true, &is_leaf);
+        validate_encrypted_token(crypt, &encrypted_token_bin, &esc_token_bin, true, &is_leaf, false, NULL);
         // isLeaf byte should be either 0 or 1.
         if (is_leaf == 1) {
             leaf_count++;
@@ -1161,7 +1168,9 @@ static void test_mc_marking_to_ciphertext_fle2_range(_mongocrypt_tester_t *teste
     }
 }
 
-static void validate_text_search_token_set_common(bson_iter_t *iter_at_token_set_obj, mongocrypt_t *crypt) {
+static void validate_text_search_token_set_common(bson_iter_t *iter_at_token_set_obj,
+                                                  mongocrypt_t *crypt,
+                                                  uint32_t expected_msize) {
     ASSERT(BSON_ITER_HOLDS_DOCUMENT(iter_at_token_set_obj));
     bson_t ts_bson;
     {
@@ -1185,13 +1194,16 @@ static void validate_text_search_token_set_common(bson_iter_t *iter_at_token_set
     ASSERT_CMPUINT32(esc_token_bin.len, ==, MONGOCRYPT_HMAC_SHA256_LEN);
 
     validate_and_get_bindata(&ts_bson, "p", BSON_SUBTYPE_BINARY, &encrypted_token_bin);
-    ASSERT_CMPUINT32(encrypted_token_bin.len, ==, (16 + MONGOCRYPT_HMAC_SHA256_LEN));
+    ASSERT_CMPUINT32(encrypted_token_bin.len, ==, (16 + MONGOCRYPT_HMAC_SHA256_LEN + 3 /* msize */));
 
     // validate crypto of p
-    validate_encrypted_token(crypt, &encrypted_token_bin, &esc_token_bin, false, NULL);
+    uint32_t out_msize;
+    validate_encrypted_token(crypt, &encrypted_token_bin, &esc_token_bin, false, NULL, true, &out_msize);
+    ASSERT_CMPUINT32(out_msize, ==, expected_msize);
 }
 
-static size_t validate_text_search_token_set_array_common(bson_iter_t *iter_at_array, mongocrypt_t *crypt) {
+static size_t
+validate_text_search_token_set_array_common(bson_iter_t *iter_at_array, mongocrypt_t *crypt, uint32_t expected_msize) {
     ASSERT(BSON_ITER_HOLDS_ARRAY(iter_at_array));
     bson_t arr_bson;
     {
@@ -1207,7 +1219,7 @@ static size_t validate_text_search_token_set_array_common(bson_iter_t *iter_at_a
     size_t count = 0;
     while (bson_iter_next(&iter)) {
         count++;
-        validate_text_search_token_set_common(&iter, crypt);
+        validate_text_search_token_set_common(&iter, crypt, expected_msize);
     }
     return count;
 }
@@ -1252,8 +1264,11 @@ static void validate_text_search_ciphertext(_mongocrypt_tester_t *tester,
         ASSERT(memcmp(res.e.data, mc_ServerDataEncryptionLevel1Token_get(sdel1Token)->data, res.e.len) == 0);
 
         // validate crypto of p
-        ASSERT(res.p.len == 16 + MONGOCRYPT_HMAC_SHA256_LEN);
-        validate_encrypted_token(crypt, &res.p, &res.s, false, NULL);
+        ASSERT(res.p.len == 16 + MONGOCRYPT_HMAC_SHA256_LEN + 3 /* msize */);
+        // msize should be 0 for p
+        uint32_t out_msize;
+        validate_encrypted_token(crypt, &res.p, &res.s, false, NULL, true, &out_msize);
+        ASSERT_CMPUINT32(0, ==, out_msize);
 
         // validate v decrypts cleanly
         {
@@ -1300,20 +1315,25 @@ static void validate_text_search_ciphertext(_mongocrypt_tester_t *tester,
             ASSERT(bson_init_static(&b_bson, subdoc_buf, subdoc_len));
         }
 
+        // msize on equality token should be the sum of all tag counts, and for other tokens, 0.
         ASSERT(bson_iter_init_find(&b_iter, &b_bson, "e"));
-        validate_text_search_token_set_common(&b_iter, crypt);
+        validate_text_search_token_set_common(&b_iter,
+                                              crypt,
+                                              (uint32_t)(1 + expected_tag_counts->substrings
+                                                         + expected_tag_counts->suffixes
+                                                         + expected_tag_counts->prefixes));
 
         size_t tscount = 0;
         ASSERT(bson_iter_init_find(&b_iter, &b_bson, "s"));
-        tscount = validate_text_search_token_set_array_common(&b_iter, crypt);
+        tscount = validate_text_search_token_set_array_common(&b_iter, crypt, 0 /* msize */);
         ASSERT_CMPSIZE_T(expected_tag_counts->substrings, ==, tscount);
 
         ASSERT(bson_iter_init_find(&b_iter, &b_bson, "u"));
-        tscount = validate_text_search_token_set_array_common(&b_iter, crypt);
+        tscount = validate_text_search_token_set_array_common(&b_iter, crypt, 0 /* msize */);
         ASSERT_CMPSIZE_T(expected_tag_counts->suffixes, ==, tscount);
 
         ASSERT(bson_iter_init_find(&b_iter, &b_bson, "p"));
-        tscount = validate_text_search_token_set_array_common(&b_iter, crypt);
+        tscount = validate_text_search_token_set_array_common(&b_iter, crypt, 0 /* msize */);
         ASSERT_CMPSIZE_T(expected_tag_counts->prefixes, ==, tscount);
     } else {
         ASSERT_CMPUINT8(ciphertext->blob_subtype, ==, MC_SUBTYPE_FLE2FindTextPayload);
@@ -1992,6 +2012,21 @@ static void test_mc_marking_to_ciphertext_fle2_text_search(_mongocrypt_tester_t 
     }
 }
 
+static size_t count_suffixes(bson_t *ciphertext_bson) {
+    bson_iter_t iter;
+    // Find TextSearchTokenSets ("b").
+    ASSERT(bson_iter_init_find(&iter, ciphertext_bson, "b"));
+    ASSERT(bson_iter_recurse(&iter, &iter));
+    // Find suffix tokens ("u"):
+    ASSERT(bson_iter_find(&iter, "u"));
+    ASSERT(bson_iter_recurse(&iter, &iter));
+    size_t suffix_count = 0;
+    while (bson_iter_next(&iter)) {
+        suffix_count++;
+    }
+    return suffix_count;
+}
+
 static void test_ciphertext_len_steps_fle2_text_search(_mongocrypt_tester_t *tester) {
 #define MARKING_JSON_FORMAT                                                                                            \
     RAW_STRING({                                                                                                       \
@@ -2001,12 +2036,13 @@ static void test_ciphertext_len_steps_fle2_text_search(_mongocrypt_tester_t *tes
             'v' : "%s",                                                                                                \
             'casef' : false,                                                                                           \
             'diacf' : false,                                                                                           \
-            'suffix' : {'ub' : {'$numberInt' : '2'}, 'lb' : {'$numberInt' : '1'}}                                      \
+            'suffix' : {'ub' : {'$numberInt' : '100'}, 'lb' : {'$numberInt' : '1'}}                                    \
         },                                                                                                             \
         'cm' : {'$numberLong' : '2'}                                                                                   \
     })
 
     size_t last_len = 0;
+    size_t last_suffix_count = 0;
     mongocrypt_binary_t *cmd = TEST_FILE("./test/example/cmd.json");
     mongocrypt_binary_t *key_file = TEST_BIN(16);
     mongocrypt_binary_t *ki = TEST_BIN(16);
@@ -2016,8 +2052,10 @@ static void test_ciphertext_len_steps_fle2_text_search(_mongocrypt_tester_t *tes
         char *v = bson_malloc0(str_len + 1);
         memset(v, 'a', str_len);
         size_t bufsize = snprintf(NULL, 0, MARKING_JSON_FORMAT, v) + 1;
+        ASSERT(bufsize > 0);
         char *markingJSON = bson_malloc(bufsize);
-        sprintf(markingJSON, MARKING_JSON_FORMAT, v);
+        int ret = bson_snprintf(markingJSON, bufsize, MARKING_JSON_FORMAT, v);
+        BSON_ASSERT(0 < ret && ret < (int)bufsize);
         bson_t *marking_bson = TMP_BSON_STR(markingJSON);
 
         _mongocrypt_ciphertext_t ciphertext;
@@ -2030,6 +2068,7 @@ static void test_ciphertext_len_steps_fle2_text_search(_mongocrypt_tester_t *tes
         bson_t ciphertext_bson;
         ASSERT(_mongocrypt_buffer_to_bson(&ciphertext.data, &ciphertext_bson));
         iupv2_fields_common res = validate_iupv2_common(&ciphertext_bson);
+        size_t suffix_count = count_suffixes(&ciphertext_bson);
         if (str_len != 0) {
             // We expect a step in ciphertext len iff str_len + 5 goes from 16k-1 to 16k. 5 is the number of overhead
             // bytes from the BSON header + null byte.
@@ -2038,8 +2077,18 @@ static void test_ciphertext_len_steps_fle2_text_search(_mongocrypt_tester_t *tes
             } else {
                 ASSERT_CMPSIZE_T(res.v.len, ==, last_len);
             }
+
+            // Similarly, we expect a step in suffix count at the same point:
+            if ((str_len + 5) % 16 == 0) {
+                size_t expected_suffix_count = BSON_MIN(100 /* ub */, last_suffix_count + 16);
+                ASSERT_CMPSIZE_T(suffix_count, ==, expected_suffix_count);
+            } else {
+                size_t expected_suffix_count = BSON_MIN(100 /* ub */, last_suffix_count);
+                ASSERT_CMPSIZE_T(suffix_count, ==, expected_suffix_count);
+            }
         }
         last_len = res.v.len;
+        last_suffix_count = suffix_count;
 
         bson_destroy(&ciphertext_bson);
         bson_free(markingJSON);

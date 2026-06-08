@@ -4,14 +4,7 @@
 
 set -euo pipefail
 
-: "${EARTHLY_VERSION:=0.7.8}"
-
-# Bring in the debian/ directory from the debian/unstable branch
-pushd "$(dirname "${BASH_SOURCE[0]}")/../"
-    (git remote | grep -q upstream) || git remote add upstream https://github.com/mongodb/libmongocrypt
-    git fetch upstream
-    git checkout $(git rev-parse upstream/debian/unstable) -- debian
-popd
+: "${EARTHLY_VERSION:=0.8.16}"
 
 # Calc the arch of the executable we want
 arch="$(uname -m)"
@@ -38,6 +31,11 @@ if [[ "$OS_NAME" == "macos" ]]; then
     exe_filename="earthly-darwin-$arch$EXE_SUFFIX"
 fi
 exe_path="$cache_dir/$exe_filename"
+
+if test -f "$exe_path" && ! "$exe_path" --version; then
+    echo "Failed to execute Earthly executable, removing and re-downloading"
+    rm "$exe_path"
+fi
 
 # Download if it isn't already present
 if ! test -f "$exe_path"; then

@@ -21,8 +21,8 @@
     #     the cache.
     #
     # This file has a few major sections:
-    #   - Setup COMMANDs
-    #   - Utility COMMANDs
+    #   - Setup FUNCTIONs
+    #   - Utility FUNCTIONs
     #   - Environment targets
     #   - Build/test/CI targets
     #
@@ -33,22 +33,16 @@
     # and can be used i.e. "earthly +build --env=u22"
     #
     # The following environment are defined in this file:
+    #   • u24 - Ubuntu 24.04
     #   • u22 - Ubuntu 22.04
-    #   • u20 - Ubuntu 20.04
-    #   • u18 - Ubuntu 18.04
-    #   • u16 - Ubuntu 16.04
-    #   • u14 - Ubuntu 14.04
-    #   • rl8 - RockyLinux 8 - Stand-in for RHEL 8
-    #   • c7 - CentOS 7 - Stand-in for RHEL 7
-    #   • c6 - CentOS 6 - Stand-in for RHEL 6
-    #   • amzn1 - AmazonLinux (2018.03)
-    #   • amzn2 - AmazonLinux 2
-    #   • deb9 - Debian 9.2
-    #   • deb10 - Debian 10.0
+    #   • c10 - CentOS Stream 10 - Stand-in for RHEL 10
+    #   • c9 - CentOS Stream 9 - Stand-in for RHEL 9
+    #   • alma8 - AlmaLinux 8 - Stand-in for RHEL 8
+    #   • amzn2023 - AmazonLinux 2023
     #   • deb11 - Debian 11.0
     #   • deb12 - Debian 12.0
-    #   • sles15 - OpenSUSE Leap 15.0
-    #   • alpine - Alpine Linux 3.18
+    #   • deb13 - Debian 13
+    #   • alpine - Alpine Linux 3.23
     #
     # When adding new environments, prefer an unqualified image ID with a version:
     #   • DO NOT: "ubuntu"
@@ -58,8 +52,8 @@
     # Use of an unqualified image ID may enable separate registry in CI and local development.
 # ###
 
-VERSION --use-cache-command 0.6
-FROM alpine:3.16
+VERSION 0.8
+FROM alpine:3.23
 WORKDIR /s
 
 init:
@@ -81,42 +75,26 @@ init:
 
 DEBIAN_SETUP:
     # Setup for a debian-like build environment. Used for both Debian and Ubuntu
-    COMMAND
+    FUNCTION
     RUN __install build-essential g++ libssl-dev curl unzip python3 pkg-config \
                   git ccache findutils ca-certificates
 
 REDHAT_SETUP:
-    # Setup for a redhat-like build environment. Used for CentOS and RockyLinux.
-    COMMAND
+    # Setup for a redhat-like build environment. Used for CentOS Stream and AlmaLinux.
+    FUNCTION
     RUN __install epel-release && \
         __install gcc-c++ make openssl-devel curl unzip git ccache findutils \
                   patch
 
-CENTOS6_SETUP:
-    # Special setup for CentOS6: The packages have been moved to the vault, so
-    # we need to enable the vault repos before we perform any __installs
-    COMMAND
-    RUN rm /etc/yum.repos.d/*.repo
-    COPY etc/c6-vault.repo /etc/yum.repos.d/CentOS-Base.repo
-    DO +REDHAT_SETUP
-
 AMZ_SETUP:
     # Setup for Amazon Linux.
-    COMMAND
-    # amzn1 has "python38", but amzn2 has "python3." Try both
-    RUN __install python3 || __install python38
+    FUNCTION
     RUN __install gcc-c++ make openssl-devel curl unzip tar gzip \
                   openssh-clients patch git
 
-SLES_SETUP:
-    # Setup for a SLES/SUSE build environment
-    COMMAND
-    RUN __install gcc-c++ make libopenssl-devel curl unzip tar gzip python3 \
-                  patch git xz which
-
 ALPINE_SETUP:
     # Setup for an Alpine Linux build environment
-    COMMAND
+    FUNCTION
     RUN __install make bash gcc g++ unzip curl tar gzip git musl-dev \
                   linux-headers openssl-dev python3
 
@@ -124,121 +102,140 @@ ALPINE_SETUP:
 # are rather themselves the "outputs" to be used as the environment for subsequent
 # tasks
 
-env.c6:
-    # A CentOS 6 environment.
-    FROM +init --base=centos:6
-    DO +CENTOS6_SETUP
-
-env.c7:
-    # A CentOS 7 environment.
-    FROM +init --base=centos:7
+env.c9:
+    # Use CentOS Stream 9 as a stand-in for RHEL 9
+    FROM +init --base=quay.io/centos/centos:stream9
     DO +REDHAT_SETUP
+    # uv is not available via dnf: use pip instead.
+    RUN __install python3.12-pip
+    RUN python3.12 -m pip install --user uv
+    ENV PATH=/root/.local/bin:$PATH
+    RUN uv --version && uvx python --version
 
-env.rl8:
-    # CentOS 8 is cancelled. Use RockyLinux 8 for our RHEL 8 environment.
-    FROM +init --base=rockylinux:8
+env.c10:
+    # Use CentOS Stream 10 as a stand-in for RHEL 10
+    FROM +init --base=quay.io/centos/centos:stream10
     DO +REDHAT_SETUP
+    # uv is available via dnf: install directly.
+    RUN __install uv
+    RUN uv --version && uvx python --version
+
+env.alma8:
+    # Use AlmaLinux 8 as a stand-in for RHEL 8
+    FROM +init --base=almalinux:8
+    DO +REDHAT_SETUP
+    # uv is not available via dnf: use pip instead.
+    RUN dnf config-manager --set-enabled powertools
+    RUN __install python3.12-pip
+    RUN python3.12 -m pip install --user uv
+    ENV PATH=/root/.local/bin:$PATH
+    RUN uv --version && uvx python --version
 
 # Utility command for Ubuntu environments
 ENV_UBUNTU:
-    COMMAND
+    FUNCTION
     ARG --required version
     FROM +init --base=ubuntu:$version
     DO +DEBIAN_SETUP
 
-env.u14:
-    # An Ubuntu 14.04 environment
-    DO +ENV_UBUNTU --version 14.04
-
-env.u16:
-    # An Ubuntu 16.04 environment
-    DO +ENV_UBUNTU --version 16.04
-
-env.u18:
-    # An Ubuntu 18.04 environment
-    DO +ENV_UBUNTU --version 18.04
-
-env.u20:
-    # An Ubuntu 20.04 environment
-    DO +ENV_UBUNTU --version 20.04
-
 env.u22:
     # An Ubuntu 22.04 environment
     DO +ENV_UBUNTU --version 22.04
+    # uv is not available via apt: use pip instead.
+    RUN __install python3-pip  # Python 3.10
+    RUN python3 -m pip install --user uv
+    ENV PATH=/root/.local/bin:$PATH
+    RUN uv --version && uvx python --version
 
-env.amzn1:
-    # An Amazon "1" environment. (AmazonLinux 2018)
-    FROM +init --base=amazonlinux:2018.03
-    DO +AMZ_SETUP
+env.u24:
+    # An Ubuntu 24.04 environment
+    DO +ENV_UBUNTU --version 24.04
+    # uv is not available via apt: use pip instead.
+    RUN __install python3-pip  # Python 3.12
+    RUN python3 -m pip install --user --break-system-packages uv
+    ENV PATH=/root/.local/bin:$PATH
+    RUN uv --version && uvx python --version
 
-env.amzn2:
-    # An AmazonLinux 2 environment
-    FROM +init --base=amazonlinux:2
+env.amzn2023:
+    # An Amazon "2023" environment. (AmazonLinux 2023)
+    FROM +init --base=amazonlinux:2023
     DO +AMZ_SETUP
+    # uv is not available via dnf: use pip instead.
+    RUN __install python3.13-pip
+    RUN python3.13 -m pip install --user uv
+    ENV PATH=/root/.local/bin:$PATH
+    RUN uv --version && uvx python --version
 
 # Utility command for Debian setup
 ENV_DEBIAN:
-    COMMAND
+    FUNCTION
     ARG --required version
     FROM +init --base=debian:$version
-    IF [ $version = "9.2" ]
-        # Update source list for archived Debian stretch packages.
-        # Refer: https://unix.stackexchange.com/a/743865/260858
-        RUN echo "deb http://archive.debian.org/debian stretch main" > /etc/apt/sources.list
-    END
     DO +DEBIAN_SETUP
-
-env.deb9:
-    # A Debian 9.2 environment
-    DO +ENV_DEBIAN --version 9.2
-
-env.deb10:
-    # A Debian 10.0 environment
-    DO +ENV_DEBIAN --version 10.0
 
 env.deb-unstable:
     DO +ENV_DEBIAN --version=unstable
+    # uv is not available via apt: use pip instead.
+    RUN __install python3-pip  # Python 3.13
+    RUN python3 -m pip install --user --break-system-packages uv
+    ENV PATH=/root/.local/bin:$PATH
+    RUN uv --version && uvx python --version
 
 env.deb11:
     # A Debian 11.0 environment
     DO +ENV_DEBIAN --version 11.0
+    # uv is not available via apt: use pip instead.
+    RUN __install python3-pip  # Python 3.9
+    RUN python3 -m pip install --user uv
+    ENV PATH=/root/.local/bin:$PATH
+    RUN uv --version && uvx python --version
 
 env.deb12:
     # A Debian 12.0 environment
     DO +ENV_DEBIAN --version 12.0
+    # uv is not available via apt: use pip instead.
+    RUN __install python3-pip  # Python 3.11
+    RUN python3 -m pip install --user --break-system-packages uv
+    ENV PATH=/root/.local/bin:$PATH
+    RUN uv --version && uvx python --version
 
-env.sles15:
-    # An OpenSUSE Leap 15.0 environment.
-    FROM +init --base=opensuse/leap:15.0
-    DO +SLES_SETUP
+env.deb13:
+    # A Debian 13 environment
+    DO +ENV_DEBIAN --version 13.0
+    # uv is not available via apt: use pip instead.
+    RUN __install python3-pip  # Python 3.13
+    RUN python3 -m pip install --user --break-system-packages uv
+    ENV PATH=/root/.local/bin:$PATH
+    RUN uv --version && uvx python --version
 
 env.alpine:
-    FROM +init --base=alpine:3.18
+    FROM +init --base=alpine:3.23
     DO +ALPINE_SETUP
+    # uv is available via apk: install directly.
+    RUN __install uv
+    RUN uv --version && uvx python --version
 
 # Utility: Warm-up obtaining CMake and Ninja for the build. This is usually
 # very quick, but on some platforms we need to compile them from source.
 CACHE_WARMUP:
-    COMMAND
+    FUNCTION
     # Copy only the scripts that are strictly necessary for the operation, to
     # avoid cache invalidation later on.
     COPY .evergreen/setup-env.sh \
          .evergreen/init.sh \
-         .evergreen/ensure-cmake.sh \
-         .evergreen/ensure-ninja.sh \
+         .evergreen/install-build-tools.sh \
          /T/
-    RUN bash /T/ensure-cmake.sh
-    RUN env NINJA_EXE=/usr/local/bin/ninja \
-        bash /T/ensure-ninja.sh
+    RUN bash -c '. /T/install-build-tools.sh && UV_TOOL_DIR=/T/uv-tools UV_TOOL_BIN_DIR=/T/uv-bin install_build_tools'
+    ENV PATH="/T/uv-bin:$PATH"
+    ENV CMAKE_GENERATOR="Ninja"
 
 COPY_SOURCE:
-    COMMAND
+    FUNCTION
     COPY --dir \
         .git/ \
         cmake/ \
         kms-message/ \
         test/ \
-        debian/ \
         src/ \
         doc/ \
         etc/ \
@@ -250,7 +247,7 @@ COPY_SOURCE:
     COPY --dir bindings/cs/ "/s/libmongocrypt/bindings/"
 
 BUILD_EXAMPLE_STATE_MACHINE:
-    COMMAND
+    FUNCTION
     COPY test/example-state-machine.c /s/
     RUN pkg-config --exists libmongocrypt --print-errors && \
         gcc /s/example-state-machine.c \
@@ -260,11 +257,11 @@ BUILD_EXAMPLE_STATE_MACHINE:
     RUN cd /s && /s/example-state-machine
 
 rpm-build:
-    FROM +init --base fedora:38
+    FROM +init --base fedora:45
     GIT CLONE https://src.fedoraproject.org/rpms/libmongocrypt.git /R
     # Install the packages listed by "BuildRequires" and rpm-build:
-    RUN __install $(awk '/^BuildRequires:/ { print $2 }' /R/libmongocrypt.spec) \
-                  rpm-build
+    RUN __install /R/libmongocrypt.spec
+    RUN __install rpm-build
     DO +COPY_SOURCE
     RUN cp -r /s/libmongocrypt/. /R
     RUN awk -f /R/etc/rpm/tweak.awk < /R/libmongocrypt.spec > /R/libmongocrypt.2.spec
@@ -276,7 +273,7 @@ rpm-build:
 
 rpm-install-runtime:
     # Install the runtime RPM
-    FROM +init --base fedora:38
+    FROM +init --base fedora:45
     COPY +rpm-build/RPMS /tmp/libmongocrypt-rpm/
     RUN dnf makecache
     RUN __install $(find /tmp/libmongocrypt-rpm/ -name 'libmongocrypt-1.*.rpm')
@@ -313,13 +310,15 @@ deb-build:
     RUN __install git-buildpackage fakeroot debhelper cmake libbson-dev \
                   libintelrdfpmath-dev
     DO +COPY_SOURCE
+    # Bring in the debian/ directory from the debian/unstable branch
+    GIT CLONE https://github.com/mongodb/libmongocrypt --branch debian/unstable libmongocrypt-debian
     WORKDIR /s/libmongocrypt
     RUN git clean -fdx && git reset --hard
     RUN python3 etc/calc_release_version.py > VERSION_CURRENT
     RUN git add -f VERSION_CURRENT && \
         git -c user.name=anon -c user.email=anon@localhost \
             commit VERSION_CURRENT -m 'Set version' && \
-        env LANG=C bash debian/build_snapshot.sh && \
+        env LANG=C bash libmongocrypt-debian/debian/build_snapshot.sh && \
         debc ../*.changes && \
         dpkg -i ../*.deb
     SAVE ARTIFACT /s/*.deb /debs/
@@ -355,9 +354,9 @@ packaging-full-test:
     BUILD +rpm-runtime-test
 
 check-format:
-    FROM +init --base=python:3.11.2-slim-buster
-    RUN __install build-essential # To install `make` to install clang-format.
-    RUN pip install pipx
+    FROM +init --base=python:3.13.5-slim-bookworm
+    # uv is available via pip: install directly.
+    RUN pip install uv
     COPY etc/format* /X/etc/
     COPY .evergreen/init.sh /X/.evergreen/
     RUN /X/etc/format.sh  # Does nothing, but warms the cache
@@ -383,7 +382,7 @@ build:
     IF $persist_build
         CACHE /s/libmongocrypt/cmake-build
     END
-    RUN env USE_NINJA=1 bash libmongocrypt/.evergreen/build_all.sh
+    RUN bash libmongocrypt/.evergreen/build_all.sh
     SAVE ARTIFACT /s/install /libmongocrypt-install
 
 # `create-deb-packages-and-repos` creates the .deb packages and repo directories intended for the PPA on debian-like distros. Options:
@@ -403,7 +402,6 @@ create-deb-packages-and-repos:
     RUN env \
         WORKDIR=/s \
         PYTHON=python3 \
-        HAS_PACKAGES=true \
         PACKAGER_DISTRO=$packager_distro \
         PACKAGER_ARCH=$packager_arch \
         bash libmongocrypt/.evergreen/create-packages-and-repos.sh
