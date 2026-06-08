@@ -1,6 +1,7 @@
 # rakelib/update.rake
 
 require 'fileutils'
+require 'tmpdir'
 
 def resolve_version
   @resolved_version ||= begin
@@ -37,5 +38,31 @@ namespace :update do
     File.write(version_file, content)
 
     puts "Updated: LIBMONGOCRYPT_VERSION=#{new_libmongocrypt_version}, VERSION=#{new_helper_version}"
+  end
+
+  desc 'Download and unpack libmongocrypt source into ext/libmongocrypt/libmongocrypt/'
+  task :libmongocrypt do
+    version = resolve_version
+    tarball_url = "https://github.com/mongodb/libmongocrypt/archive/refs/tags/#{version}.tar.gz"
+    dest = 'ext/libmongocrypt/libmongocrypt'
+
+    Dir.mktmpdir do |tmpdir|
+      tarball = File.join(tmpdir, "libmongocrypt-#{version}.tar.gz")
+
+      puts "Downloading libmongocrypt #{version}..."
+      sh "curl -L -f -o #{tarball} #{tarball_url}"
+
+      puts "Extracting..."
+      sh "tar xzf #{tarball} -C #{tmpdir}"
+
+      extracted = File.join(tmpdir, "libmongocrypt-#{version}")
+      abort "Expected #{extracted} after extraction — check that #{version} is a valid release tag" unless Dir.exist?(extracted)
+
+      puts "Installing to #{dest}..."
+      FileUtils.rm_rf(dest)
+      FileUtils.mv(extracted, dest)
+    end
+
+    puts "libmongocrypt #{version} source installed to #{dest}"
   end
 end
