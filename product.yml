@@ -1,8 +1,0 @@
----
-name: libmongocrypt-helper
-description: a helper library for installing and loading libmongocrypt in Ruby
-package: libmongocrypt-helper
-jira: https://jira.mongodb.org/projects/RUBY
-version:
-  number: 1.19.0
-  file: lib/libmongocrypt-helper/version.rb
