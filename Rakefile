@@ -8,13 +8,22 @@ task :compile do
   end
 end
 
-desc 'NOT USED'
 task :build do
-  abort <<~WARNING
-    `rake build` does nothing in this project. The gem must be built via
-    the `Release` action on GitHub, which is triggered manually when
-    a new release is ready.
-  WARNING
+  gemspec = ENV['GEMSPEC']
+  gem_file_name = ENV['GEM_FILE_NAME']
+
+  unless gemspec && gem_file_name
+    abort <<~WARNING
+      `rake build` is intended to be called from CI only, with GEMSPEC and
+      GEM_FILE_NAME environment variables set. To build the gem manually,
+      run `gem build libmongocrypt-helper.gemspec` directly.
+    WARNING
+  end
+
+  system('gem', 'build', gemspec) or abort('gem build failed')
+
+  built = Dir['*.gem'].first
+  File.rename(built, gem_file_name) if built && built != gem_file_name
 end
 
 # `rake version` is used by the deployment system so get the release version
