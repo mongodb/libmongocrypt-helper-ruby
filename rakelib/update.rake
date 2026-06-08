@@ -2,6 +2,7 @@
 
 require 'fileutils'
 require 'tmpdir'
+require_relative '../lib/libmongocrypt_helper/version'
 
 def resolve_version
   @resolved_version ||= begin
@@ -20,19 +21,16 @@ namespace :update do
   task :version do
     new_libmongocrypt_version = resolve_version
     version_file = 'lib/libmongocrypt_helper/version.rb'
-    content = File.read(version_file)
 
-    current_libmongocrypt = content.match(/LIBMONGOCRYPT_VERSION = '([^']+)'/)[1]
-    current_helper = content.match(/(?<![A-Z_])VERSION = '([^']+)'/)[1]
-
-    new_helper_version = if current_libmongocrypt == new_libmongocrypt_version
-      parts = current_helper.split('.')
+    new_helper_version = if LibmongocryptHelper::LIBMONGOCRYPT_VERSION == new_libmongocrypt_version
+      parts = LibmongocryptHelper::VERSION.split('.')
       parts[-1] = (parts[-1].to_i + 1).to_s
       parts.join('.')
     else
       "#{new_libmongocrypt_version}.0.1001"
     end
 
+    content = File.read(version_file)
     content = content.sub(/LIBMONGOCRYPT_VERSION = '[^']+'/, "LIBMONGOCRYPT_VERSION = '#{new_libmongocrypt_version}'")
     content = content.sub(/(?<![A-Z_])VERSION = '[^']+'/, "VERSION = '#{new_helper_version}'")
     File.write(version_file, content)
@@ -73,8 +71,8 @@ namespace :update do
 
   desc 'Build and install the gem locally to verify it'
   task :test do
-    content = File.read('lib/libmongocrypt_helper/version.rb')
-    version = content.match(/(?<![A-Z_])VERSION = '([^']+)'/)[1]
+    load File.expand_path('../lib/libmongocrypt_helper/version.rb', __dir__)
+    version = LibmongocryptHelper::VERSION
     sh "gem build libmongocrypt-helper.gemspec"
     sh "gem install libmongocrypt-helper-#{version}.gem"
     puts "Successfully built and installed libmongocrypt-helper-#{version}"
