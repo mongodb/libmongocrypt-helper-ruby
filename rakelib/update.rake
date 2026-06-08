@@ -70,4 +70,13 @@ namespace :update do
   task :sbom do
     sh 'etc/update-sbom.sh'
   end
+
+  desc 'Build and install the gem locally to verify it'
+  task :test do
+    content = File.read('lib/libmongocrypt_helper/version.rb')
+    version = content.match(/(?<![A-Z_])VERSION = '([^']+)'/)[1]
+    sh "gem build libmongocrypt-helper.gemspec"
+    sh "gem install libmongocrypt-helper-#{version}.gem"
+    puts "Successfully built and installed libmongocrypt-helper-#{version}"
+  end
 end
