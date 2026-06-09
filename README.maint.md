@@ -3,19 +3,28 @@ libmongocrypt Ruby Helper - Maintainer Guide
 
 ## Packaging New libmongocrypt Version
 
-Edit `lib/libmongocrypt_helper/version.rb` and:
+The easy way:
 
-1. Update the `LIBMONGOCRYPT_VERSION` constant to the version of
+```
+$ rake update:all
+```
+
+That command will run the steps outlined below, but if you want to do it manually, here are the steps:
+
+1. Edit `lib/libmongocrypt_helper/version.rb` and update the `LIBMONGOCRYPT_VERSION` constant to the version of
 `libmongocrypt` that you want to package.
 2. Update the `VERSION` constant to the version of the helper, which is
 derived from `libmongocrypt` version as described below.
 3. Download the source code of the corresponding version of `libmongocrypt` from
 <https://github.com/mongodb/libmongocrypt/releases/>, and unpack it to
 `ext/libmongocrypt/libmongocrypt`.
-4. Update the SBOM lite file by running `etc/update-sbom.sh`
+4. Update the SBOM lite file by running `etc/update-sbom.sh` (this requires that you have Docker running locally).
 5. Test the changes by running `gem build *.gemspec && gem install libmongocrypt-helper-VERSION.gem`.
-6. Commit the changes.
-7. Create a PR for the changes. Once approved and merged, run the "Release" action on GitHub to create and publish the new gem.
+
+Whether you use the `rake` task or do it manually, you will then do the following two steps:
+
+1. Commit the changes.
+2. Create a PR for the changes. Make sure the PR is labelled with `release-candidate`. Once approved and merged, the new version of the helper will automatically be built and published to RubyGems.
 
 ## Helper Version Scheme
 

@@ -2,35 +2,60 @@ name: "Release"
 run-name: "Release for ${{ github.ref }}"
 
 on:
+  push:
+    branches:
+      - master
   workflow_dispatch:
     inputs:
+      pr:
+        description: The PR number to release
+        required: true
+        type: string
       dry_run:
         description: Is this a dry run?
         required: true
         default: true
         type: boolean
 
-env:
-  RELEASE_MESSAGE_TEMPLATE: |
-    Version {0} of the [libmongocrypt helper for Ruby](https://rubygems.org/gems/libmongocrypt-helper) is now available.
-
-    **Release Highlights**
-
-    TODO: one or more paragraphs describing important changes in this release
-
-    **Documentation**
-
-    Documentation is available at [MongoDB.com](https://www.mongodb.com/docs/ruby-driver/current/).
-
-    **Installation**
-
-    You may install this version via RubyGems, with:
-
-    gem install --version {0} libmongocrypt-helper
-
 jobs:
+  pr-check:
+    name: "PR Eligibility Check"
+    runs-on: 'ubuntu-latest'
+
+    permissions:
+      contents: read
+      pull-requests: read
+
+    outputs:
+      ref: ${{ steps.pr_check.outputs.ref }}
+      release_message: ${{ steps.pr_check.outputs.message }}
+
+    steps:
+      - name: "Check PR eligibility"
+        id: pr_check
+        uses: mongodb-labs/drivers-github-tools/ruby/pr-check@v3
+
+  build:
+    name: "Build Gem"
+    needs: [pr-check]
+    runs-on: 'ubuntu-latest'
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: "Build the gem"
+        uses: mongodb-labs/drivers-github-tools/ruby/build@v3
+        with:
+          app_id: ${{ vars.APP_ID }}
+          app_private_key: ${{ secrets.APP_PRIVATE_KEY }}
+          gem_name: libmongocrypt-helper
+          ref: ${{ needs.pr-check.outputs.ref }}
+
   release:
     name: "Release"
+    needs: [pr-check, build]
     environment: release
     runs-on: 'ubuntu-latest'
 
@@ -45,22 +70,22 @@ jobs:
       actions: read
       contents: write
 
-      # required by the mongodb-labs/drivers-github-tools/setup@v2 step
+      # required by the mongodb-labs/drivers-github-tools/setup@v3 step
       # also required by `rubygems/release-gem`
       id-token: write
 
     steps:
       - name: "Run the publish action"
-        uses: mongodb-labs/drivers-github-tools/ruby/publish@v2
+        uses: mongodb-labs/drivers-github-tools/ruby/publish@v3
         with:
           app_id: ${{ vars.APP_ID }}
           app_private_key: ${{ secrets.APP_PRIVATE_KEY }}
           aws_role_arn: ${{ secrets.AWS_ROLE_ARN }}
           aws_region_name: ${{ vars.AWS_REGION_NAME }}
           aws_secret_id: ${{ secrets.AWS_SECRET_ID }}
-          dry_run: ${{ inputs.dry_run }}
+          dry_run: ${{ inputs.dry_run || 'false' }}
           gem_name: libmongocrypt-helper
           product_name: Libmongocrypt Helper for Ruby
           product_id: libmongocrypt-helper-ruby
-          release_message_template: ${{ env.RELEASE_MESSAGE_TEMPLATE }}
-          silk_asset_group: libmongocrypt-helper-ruby
+          ref: ${{ needs.pr-check.outputs.ref }}
+          release_message: ${{ needs.pr-check.outputs.release_message }}

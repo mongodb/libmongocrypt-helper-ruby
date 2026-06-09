@@ -14,6 +14,8 @@ The project is organized into the following directories:
 
 Refer to @README.maint.md for instructions on updating the libmongocrypt library.
 
+Design documents and implementation plans are not to be committed to the repository unless explicitly requested.
+
 # Code Reviews
 
 See [.github/code-review.md](.github/code-review.md) for code review guidelines.
