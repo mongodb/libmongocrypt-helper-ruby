@@ -1,5 +1,5 @@
 module LibmongocryptHelper
-  VERSION = '1.19.0.0.1001'
+  VERSION = '1.20.1.0.1001'
 
-  LIBMONGOCRYPT_VERSION = '1.19.0'
+  LIBMONGOCRYPT_VERSION = '1.20.1'
 end
