@@ -11,9 +11,15 @@ LIBMONGOCRYPT_VERSION=$(grep -e "LIBMONGOCRYPT_VERSION = " ${VERSION_FILE} | sed
 # Generate purls file from stored versions
 echo "pkg:github/mongodb/libmongocrypt@${LIBMONGOCRYPT_VERSION}" > $PURLS_FILE
 
+# Log in to the DevProd Platforms ECR registry. Requires membership in the
+# devprod-platforms-ecr-users Okta group and an AWS SSO profile — see
+# https://docs.devprod.prod.corp.mongodb.com/devprod-platforms-ecr
+profile="${DEVPROD_PLATFORMS_ECR_AWS_PROFILE:-ECRScopedAccess-901841024863}"
+aws ecr get-login-password --region us-east-1 --profile "$profile" | docker login --username AWS --password-stdin 901841024863.dkr.ecr.us-east-1.amazonaws.com
+
 # Use silkbomb to update the sbom.json file
 docker run --platform="linux/amd64" -it --rm -v ${ROOT_DIR}:/pwd \
-  artifactory.corp.mongodb.com/release-tools-container-registry-public-local/silkbomb:2.0 \
+  901841024863.dkr.ecr.us-east-1.amazonaws.com/release-infrastructure/silkbomb:2.0 \
   update --sbom-in /pwd/sbom.json --purls /pwd/purls.txt --sbom-out /pwd/sbom.json
 
 rm $PURLS_FILE
