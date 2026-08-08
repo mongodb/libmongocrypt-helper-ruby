@@ -19,7 +19,7 @@ task :build do
       run `gem build libmongocrypt-helper.gemspec` directly.
     WARNING
   end
-
+  # hello
   system('gem', 'build', gemspec) or abort('gem build failed')
 
   built = Dir['*.gem'].first
