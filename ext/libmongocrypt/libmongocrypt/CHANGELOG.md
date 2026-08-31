@@ -1,5 +1,14 @@
 # ChangeLog
 
+## 1.20.3
+
+### Fixed
+- Validate database and collection name arguments against "." and NUL bytes
+## 1.20.2
+
+### Changed
+- Add checks when creating GCP requests.
+
 ## 1.20.1
 
 ## Changed
