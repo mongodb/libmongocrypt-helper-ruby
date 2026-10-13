@@ -1,5 +1,17 @@
 # ChangeLog
 
+## 1.20.5
+
+### Fixed
+- Fix possible abort parsing endpoints.
+- Reject more payloads that cannot be decrypted in explicit decryption.
+- Fix more degenerate cases of masterKey parsing.
+
+## 1.20.4
+
+### Fixed
+- Reject undersized decryption payloads.
+
 ## 1.20.3
 
 ### Fixed
